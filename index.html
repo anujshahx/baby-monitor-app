@@ -149,7 +149,7 @@
         <span class="step-number">3</span>
         <strong>Enter code from Monitor</strong>
       </div>
-      <input id="answerCode" type="text" placeholder="Enter 6-digit code" maxlength="8" style="text-transform: uppercase;">
+      <input id="answerCode" type="text" placeholder="Enter code" maxlength="10" style="text-transform: uppercase;">
       <button class="btn-secondary" onclick="fetchAndConnect()">✓ Connect with Code</button>
       
       <details>
@@ -171,7 +171,7 @@
       <span class="step-number">1</span>
       <strong>Enter code from Camera</strong>
     </div>
-    <input id="offerCode" type="text" placeholder="Enter 6-digit code" maxlength="8" style="text-transform: uppercase;">
+    <input id="offerCode" type="text" placeholder="Enter code" maxlength="10" style="text-transform: uppercase;">
     <button class="btn-primary" onclick="fetchAndCreateAnswer()">Get Camera Feed</button>
 
     <details>
@@ -211,7 +211,6 @@
 
     let pc = null;
     let localStream = null;
-    const PASTE_API = 'https://dpaste.com/api/v2/';
 
     function showPanel(panelId) {
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -263,21 +262,23 @@
 
     async function uploadToPaste(content) {
       try {
-        const formData = new FormData();
-        formData.append('content', content);
-        formData.append('expiry_days', '1');
-        
-        const response = await fetch(PASTE_API, {
+        const response = await fetch('https://api.paste.ee/v1/pastes', {
           method: 'POST',
-          body: formData
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            sections: [{
+              contents: content
+            }],
+            expiration: 86400 // 1 day
+          })
         });
         
         if (!response.ok) throw new Error('Upload failed');
         
-        const url = await response.text();
-        // Extract code from URL (e.g., https://dpaste.com/ABCD1234)
-        const code = url.trim().split('/').pop().substring(0, 8);
-        return code;
+        const data = await response.json();
+        return data.id; // Returns short ID like "abc123"
       } catch (err) {
         console.error('Paste upload error:', err);
         return null;
@@ -286,9 +287,10 @@
 
     async function fetchFromPaste(code) {
       try {
-        const response = await fetch(`https://dpaste.com/${code}.txt`);
+        const response = await fetch(`https://api.paste.ee/v1/pastes/${code}`);
         if (!response.ok) throw new Error('Fetch failed');
-        return await response.text();
+        const data = await response.json();
+        return data.paste.sections[0].contents;
       } catch (err) {
         console.error('Paste fetch error:', err);
         return null;
@@ -358,7 +360,7 @@
     }
 
     async function fetchAndConnect() {
-      const code = document.getElementById('answerCode').value.trim().toUpperCase();
+      const code = document.getElementById('answerCode').value.trim().toLowerCase();
       if (!code) {
         showStatus('cameraStatus', '⚠️ Please enter the code from Monitor!', 'error');
         return;
@@ -371,7 +373,7 @@
         document.getElementById('answerInput').value = answerJSON;
         await connectCamera();
       } else {
-        showStatus('cameraStatus', '❌ Invalid code. Use manual method.', 'error');
+        showStatus('cameraStatus', '❌ Invalid code or expired. Use manual method.', 'error');
       }
     }
 
@@ -399,7 +401,7 @@
     }
 
     async function fetchAndCreateAnswer() {
-      const code = document.getElementById('offerCode').value.trim().toUpperCase();
+      const code = document.getElementById('offerCode').value.trim().toLowerCase();
       if (!code) {
         showStatus('monitorStatus', '⚠️ Please enter the code from Camera!', 'error');
         return;
@@ -412,7 +414,7 @@
         document.getElementById('offerInput').value = offerJSON;
         await createAnswer();
       } else {
-        showStatus('monitorStatus', '❌ Invalid code. Use manual method.', 'error');
+        showStatus('monitorStatus', '❌ Invalid code or expired. Use manual method.', 'error');
       }
     }
 
