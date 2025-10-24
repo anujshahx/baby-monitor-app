@@ -4,8 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Baby Monitor</title>
-  <!-- RELIABLE QR CODE LIBRARY FROM CDNJS -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -64,7 +62,10 @@
       padding: 20px;
       background: white;
       border-radius: 8px;
-      min-height: 280px;
+    }
+    img.qr-image {
+      max-width: 100%;
+      height: auto;
     }
   </style>
 </head>
@@ -82,7 +83,9 @@
     <button class="btn-primary" onclick="startCamera()">Start Camera</button>
     
     <label>1️⃣ Scan this QR code on Monitor device:</label>
-    <div class="qr-container" id="qrOfferContainer"></div>
+    <div class="qr-container" id="qrOfferContainer">
+      <p>QR code will appear here...</p>
+    </div>
 
     <label>2️⃣ Paste answer from Monitor:</label>
     <textarea id="cameraAnswer" placeholder="Paste the answer text here"></textarea>
@@ -101,7 +104,9 @@
     <button class="btn-primary" onclick="createAnswer()">Create Answer</button>
 
     <label>2️⃣ Scan this QR code on Camera device:</label>
-    <div class="qr-container" id="qrAnswerContainer"></div>
+    <div class="qr-container" id="qrAnswerContainer">
+      <p>QR code will appear here...</p>
+    </div>
 
     <div id="monitorStatus" class="status" style="display:none;"></div>
     <video id="monitorVideo" autoplay playsinline></video>
@@ -142,6 +147,14 @@
       el.style.display = 'block';
     }
 
+    // Generate QR code using Google Charts API
+    function generateQR(containerId, data) {
+      const container = document.getElementById(containerId);
+      const encodedData = encodeURIComponent(data);
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodedData}`;
+      container.innerHTML = `<img src="${qrUrl}" class="qr-image" alt="QR Code" />`;
+    }
+
     // CAMERA SIDE
     async function startCamera() {
       try {
@@ -175,19 +188,8 @@
             };
             const offerJSON = JSON.stringify(offerWithCandidates);
             
-            // Clear previous QR code
-            const container = document.getElementById('qrOfferContainer');
-            container.innerHTML = '';
-            
-            // Generate QR code - CORRECT METHOD
-            new QRCode(container, {
-              text: offerJSON,
-              width: 256,
-              height: 256,
-              colorDark: '#000000',
-              colorLight: '#ffffff',
-              correctLevel: QRCode.CorrectLevel.H
-            });
+            // Generate QR code using API
+            generateQR('qrOfferContainer', offerJSON);
             
             showStatus('cameraStatus', '✅ QR Code ready! Scan on Monitor device.');
           }
@@ -260,19 +262,8 @@
             };
             const answerJSON = JSON.stringify(answerWithCandidates);
             
-            // Clear previous QR code
-            const container = document.getElementById('qrAnswerContainer');
-            container.innerHTML = '';
-            
-            // Generate QR code - CORRECT METHOD
-            new QRCode(container, {
-              text: answerJSON,
-              width: 256,
-              height: 256,
-              colorDark: '#000000',
-              colorLight: '#ffffff',
-              correctLevel: QRCode.CorrectLevel.H
-            });
+            // Generate QR code using API
+            generateQR('qrAnswerContainer', answerJSON);
             
             showStatus('monitorStatus', '✅ QR Code ready! Scan on Camera device.');
           }
