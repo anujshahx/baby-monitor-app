@@ -33,6 +33,7 @@ function show(screen) {
   screen.style.display = 'block';
 }
 
+// CAMERA SIDE CODE
 startCameraBtn.onclick = async () => {
   show(cameraScreen);
   status.textContent = 'Starting camera...';
@@ -78,12 +79,16 @@ scanAnswerBtn.onclick = () => {
     async decodedText => {
       try {
         const answer = JSON.parse(decodedText);
+        if (!answer || !answer.type || !answer.sdp) {
+          status.textContent = 'Invalid QR Code scanned.';
+          return;
+        }
         await peerConnection.setRemoteDescription(answer);
         status.textContent = 'Connected! Streaming baby video now.';
         qrScanner.style.display = 'none';
         html5QrCode.stop();
       } catch (err) {
-        status.textContent = 'Invalid QR Code scanned.';
+        status.textContent = 'QR Code error: ' + err.message;
       }
     },
     errorMessage => {}
@@ -91,7 +96,7 @@ scanAnswerBtn.onclick = () => {
 };
 
 restartCameraBtn.onclick = () => {
-  if (html5QrCode) html5QrCode.stop();
+  if (html5QrCode) html5QrCode.stop().catch(console.log);
   if (peerConnection) peerConnection.close();
   if (localStream) {
     localStream.getTracks().forEach(track => track.stop());
@@ -101,6 +106,7 @@ restartCameraBtn.onclick = () => {
   show(homeScreen);
 };
 
+// MONITOR SIDE CODE
 startMonitorBtn.onclick = () => {
   show(monitorScreen);
   statusMonitor.textContent = 'Step 1: Scan offer QR from Camera.';
@@ -120,6 +126,10 @@ scanOfferBtn.onclick = () => {
       let offer;
       try {
         offer = JSON.parse(decodedText);
+        if (!offer || !offer.type || !offer.sdp) {
+          statusMonitor.textContent = 'Invalid QR received.';
+          return;
+        }
       } catch {
         statusMonitor.textContent = 'Invalid QR received.';
         return;
@@ -151,7 +161,7 @@ scanOfferBtn.onclick = () => {
 };
 
 restartMonitorBtn.onclick = () => {
-  if (html5QrCode) html5QrCode.stop();
+  if (html5QrCode) html5QrCode.stop().catch(console.log);
   if (peerConnection) peerConnection.close();
   remoteVideo.srcObject = null;
   remoteStream = null;
