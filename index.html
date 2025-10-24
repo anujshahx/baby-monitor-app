@@ -48,6 +48,7 @@
     .btn-secondary { background: #34c759; color: white; }
     .btn-copy { background: #ff9500; color: white; }
     .btn-danger { background: #ff3b30; color: white; }
+    .btn-flip { background: #5856d6; color: white; }
     textarea {
       width: 100%;
       min-height: 120px;
@@ -79,6 +80,10 @@
     }
     .status.success { background: #d4edda; color: #155724; }
     .status.error { background: #f8d7da; color: #721c24; }
+    .video-controls {
+      display: none;
+      margin: 10px 0;
+    }
   </style>
 </head>
 <body>
@@ -97,6 +102,10 @@
       <strong>Start your camera</strong>
     </div>
     <button class="btn-primary" onclick="startCamera()">Start Camera</button>
+    
+    <div id="videoControls" class="video-controls">
+      <button class="btn-flip" onclick="flipCamera()">🔄 Flip Camera</button>
+    </div>
     
     <div id="cameraStep2" style="display:none;">
       <div class="step">
@@ -154,6 +163,7 @@
 
     let pc = null;
     let localStream = null;
+    let currentFacingMode = 'environment'; // Start with back camera
 
     function showPanel(panelId) {
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -189,16 +199,37 @@
       showStatus('monitorStatus', '✅ Copied! Send this back to Camera.', 'success');
     }
 
-    async function startCamera() {
+    async function startCamera(facingMode = 'environment') {
       try {
         showStatus('cameraStatus', '📷 Starting camera...');
         
+        // Stop existing stream if any
+        if (localStream) {
+          localStream.getTracks().forEach(t => t.stop());
+        }
+
+        currentFacingMode = facingMode;
+        
         localStream = await navigator.mediaDevices.getUserMedia({ 
-          video: true, 
+          video: { facingMode: facingMode }, 
           audio: true 
         });
         
         document.getElementById('cameraVideo').srcObject = localStream;
+        document.getElementById('videoControls').style.display = 'block';
+        
+        // If peer connection already exists, replace tracks
+        if (pc) {
+          const videoTrack = localStream.getVideoTracks()[0];
+          const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+          if (sender) {
+            sender.replaceTrack(videoTrack);
+            showStatus('cameraStatus', '✅ Camera flipped!', 'success');
+            return;
+          }
+        }
+
+        // Create new peer connection
         pc = new RTCPeerConnection(config);
         
         localStream.getTracks().forEach(track => {
@@ -228,6 +259,11 @@
       } catch (err) {
         showStatus('cameraStatus', '❌ Error: ' + err.message, 'error');
       }
+    }
+
+    async function flipCamera() {
+      const newFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+      await startCamera(newFacingMode);
     }
 
     async function connectCamera() {
