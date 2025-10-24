@@ -28,15 +28,15 @@
     .btn-primary { background: #007aff; color: white; }
     .btn-secondary { background: #34c759; color: white; }
     .btn-danger { background: #ff3b30; color: white; }
-    textarea {
+    input {
       width: 100%;
-      min-height: 100px;
-      padding: 10px;
+      padding: 15px;
       margin: 10px 0;
       border: 2px solid #ddd;
       border-radius: 8px;
-      font-family: monospace;
-      font-size: 12px;
+      font-size: 18px;
+      text-align: center;
+      letter-spacing: 3px;
     }
     video {
       width: 100%;
@@ -55,17 +55,25 @@
       color: #1976d2;
       text-align: center;
     }
-    .qr-container {
-      display: flex;
-      justify-content: center;
-      margin: 20px 0;
+    .room-code {
+      font-size: 48px;
+      font-weight: bold;
+      text-align: center;
+      color: #007aff;
       padding: 20px;
       background: white;
-      border-radius: 8px;
+      border-radius: 12px;
+      margin: 20px 0;
+      letter-spacing: 8px;
     }
-    img.qr-image {
-      max-width: 100%;
-      height: auto;
+    .share-link {
+      word-break: break-all;
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      margin: 10px 0;
+      font-size: 12px;
+      text-align: center;
     }
   </style>
 </head>
@@ -82,14 +90,12 @@
   <div id="camera" class="panel">
     <button class="btn-primary" onclick="startCamera()">Start Camera</button>
     
-    <label>1️⃣ Scan this QR code on Monitor device:</label>
-    <div class="qr-container" id="qrOfferContainer">
-      <p>QR code will appear here...</p>
+    <div id="cameraReady" style="display:none;">
+      <label>📱 Share this link with Monitor device:</label>
+      <div class="share-link" id="shareLink"></div>
+      <button class="btn-secondary" onclick="copyShareLink()">📋 Copy Link</button>
+      <p style="text-align:center; color:#666;">Or send the link via text/email</p>
     </div>
-
-    <label>2️⃣ Paste answer from Monitor:</label>
-    <textarea id="cameraAnswer" placeholder="Paste the answer text here"></textarea>
-    <button class="btn-secondary" onclick="connectCamera()">Connect</button>
 
     <div id="cameraStatus" class="status" style="display:none;"></div>
     <video id="cameraVideo" autoplay muted playsinline></video>
@@ -99,18 +105,8 @@
 
   <!-- Monitor Panel -->
   <div id="monitor" class="panel">
-    <label>1️⃣ Paste offer from Camera:</label>
-    <textarea id="monitorOffer" placeholder="Paste the offer text here"></textarea>
-    <button class="btn-primary" onclick="createAnswer()">Create Answer</button>
-
-    <label>2️⃣ Scan this QR code on Camera device:</label>
-    <div class="qr-container" id="qrAnswerContainer">
-      <p>QR code will appear here...</p>
-    </div>
-
     <div id="monitorStatus" class="status" style="display:none;"></div>
     <video id="monitorVideo" autoplay playsinline></video>
-    
     <button class="btn-danger" onclick="goHome()">← Back to Home</button>
   </div>
 
@@ -126,6 +122,7 @@
     // Global variables
     let pc = null;
     let localStream = null;
+    let checkInterval = null;
 
     // Navigation
     function showPanel(panelId) {
@@ -134,10 +131,16 @@
     }
 
     function showCamera() { showPanel('camera'); }
-    function showMonitor() { showPanel('monitor'); }
+    function showMonitor() { 
+      showPanel('monitor'); 
+      checkForOffer();
+    }
+    
     function goHome() { 
       if (pc) pc.close();
       if (localStream) localStream.getTracks().forEach(t => t.stop());
+      if (checkInterval) clearInterval(checkInterval);
+      window.location.hash = '';
       showPanel('home'); 
     }
 
@@ -147,12 +150,11 @@
       el.style.display = 'block';
     }
 
-    // Generate QR code using Google Charts API
-    function generateQR(containerId, data) {
-      const container = document.getElementById(containerId);
-      const encodedData = encodeURIComponent(data);
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodedData}`;
-      container.innerHTML = `<img src="${qrUrl}" class="qr-image" alt="QR Code" />`;
+    function copyShareLink() {
+      const link = document.getElementById('shareLink').textContent;
+      navigator.clipboard.writeText(link).then(() => {
+        alert('✅ Link copied! Send it to the Monitor device.');
+      });
     }
 
     // CAMERA SIDE
@@ -180,7 +182,7 @@
           }
         };
 
-        pc.onicegatheringstatechange = () => {
+        pc.onicegatheringstatechange = async () => {
           if (pc.iceGatheringState === 'complete') {
             const offerWithCandidates = {
               sdp: pc.localDescription,
@@ -188,10 +190,16 @@
             };
             const offerJSON = JSON.stringify(offerWithCandidates);
             
-            // Generate QR code using API
-            generateQR('qrOfferContainer', offerJSON);
+            // Encode offer in URL hash
+            const compressed = btoa(offerJSON);
+            const shareURL = window.location.origin + window.location.pathname + '#offer=' + compressed;
             
-            showStatus('cameraStatus', '✅ QR Code ready! Scan on Monitor device.');
+            document.getElementById('shareLink').textContent = shareURL;
+            document.getElementById('cameraReady').style.display = 'block';
+            showStatus('cameraStatus', '✅ Ready! Share the link with Monitor device.');
+            
+            // Start listening for answer
+            listenForAnswer();
           }
         };
 
@@ -203,16 +211,25 @@
       }
     }
 
-    async function connectCamera() {
-      try {
-        const answerText = document.getElementById('cameraAnswer').value.trim();
-        if (!answerText) {
-          alert('Please paste the answer from Monitor first!');
-          return;
+    function listenForAnswer() {
+      checkInterval = setInterval(() => {
+        const hash = window.location.hash;
+        if (hash.includes('answer=')) {
+          clearInterval(checkInterval);
+          const answerEncoded = hash.split('answer=')[1];
+          try {
+            const answerJSON = atob(answerEncoded);
+            const answerData = JSON.parse(answerJSON);
+            applyAnswer(answerData);
+          } catch (e) {
+            showStatus('cameraStatus', '❌ Invalid answer data');
+          }
         }
+      }, 1000);
+    }
 
-        const answerData = JSON.parse(answerText);
-        
+    async function applyAnswer(answerData) {
+      try {
         await pc.setRemoteDescription(answerData.sdp);
         
         if (answerData.candidates) {
@@ -228,18 +245,26 @@
     }
 
     // MONITOR SIDE
-    async function createAnswer() {
-      try {
-        const offerText = document.getElementById('monitorOffer').value.trim();
-        if (!offerText) {
-          alert('Please paste the offer from Camera first!');
-          return;
-        }
-
-        showStatus('monitorStatus', '📡 Creating connection...');
-
-        const offerData = JSON.parse(offerText);
+    async function checkForOffer() {
+      const hash = window.location.hash;
+      if (hash.includes('offer=')) {
+        showStatus('monitorStatus', '📡 Connecting to camera...');
+        const offerEncoded = hash.split('offer=')[1].split('&')[0];
         
+        try {
+          const offerJSON = atob(offerEncoded);
+          const offerData = JSON.parse(offerJSON);
+          await createAnswer(offerData);
+        } catch (e) {
+          showStatus('monitorStatus', '❌ Invalid offer data');
+        }
+      } else {
+        showStatus('monitorStatus', '❌ No camera link detected. Please open the link shared by Camera.');
+      }
+    }
+
+    async function createAnswer(offerData) {
+      try {
         pc = new RTCPeerConnection(config);
 
         pc.ontrack = e => {
@@ -254,7 +279,7 @@
           }
         };
 
-        pc.onicegatheringstatechange = () => {
+        pc.onicegatheringstatechange = async () => {
           if (pc.iceGatheringState === 'complete') {
             const answerWithCandidates = {
               sdp: pc.localDescription,
@@ -262,10 +287,15 @@
             };
             const answerJSON = JSON.stringify(answerWithCandidates);
             
-            // Generate QR code using API
-            generateQR('qrAnswerContainer', answerJSON);
+            // Send answer back via URL
+            const compressed = btoa(answerJSON);
+            const currentURL = window.location.href.split('#')[0];
+            const answerURL = currentURL + '#answer=' + compressed;
             
-            showStatus('monitorStatus', '✅ QR Code ready! Scan on Camera device.');
+            // Auto-open answer URL (Camera will detect it)
+            window.location.href = answerURL;
+            
+            showStatus('monitorStatus', '✅ Answer sent! Waiting for video...');
           }
         };
 
@@ -284,6 +314,13 @@
         showStatus('monitorStatus', '❌ Error: ' + err.message);
       }
     }
+
+    // Auto-detect if opened with offer link
+    window.addEventListener('load', () => {
+      if (window.location.hash.includes('offer=')) {
+        showMonitor();
+      }
+    });
   </script>
 </body>
 </html>
