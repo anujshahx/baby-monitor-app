@@ -48,6 +48,17 @@
     .btn-secondary { background: #34c759; color: white; }
     .btn-copy { background: #ff9500; color: white; }
     .btn-danger { background: #ff3b30; color: white; }
+    input {
+      width: 100%;
+      padding: 15px;
+      margin: 10px 0;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 18px;
+      text-align: center;
+      letter-spacing: 2px;
+      font-weight: bold;
+    }
     textarea {
       width: 100%;
       min-height: 120px;
@@ -79,6 +90,28 @@
     }
     .status.success { background: #d4edda; color: #155724; }
     .status.error { background: #f8d7da; color: #721c24; }
+    .code-display {
+      font-size: 36px;
+      font-weight: bold;
+      text-align: center;
+      color: #007aff;
+      padding: 20px;
+      background: white;
+      border-radius: 12px;
+      margin: 20px 0;
+      letter-spacing: 8px;
+    }
+    details {
+      margin: 10px 0;
+      padding: 10px;
+      background: #f9f9f9;
+      border-radius: 8px;
+    }
+    summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: #666;
+    }
   </style>
 </head>
 <body>
@@ -101,17 +134,29 @@
     <div id="cameraStep2" style="display:none;">
       <div class="step">
         <span class="step-number">2</span>
-        <strong>Copy this text and send to Monitor device</strong>
+        <strong>Share this code with Monitor device</strong>
       </div>
-      <textarea id="offerText" readonly onclick="this.select()"></textarea>
-      <button class="btn-copy" onclick="copyOffer()">📋 Copy Offer</button>
+      <div class="code-display" id="shareCode">------</div>
+      <button class="btn-copy" onclick="copyCode()">📋 Copy Code</button>
+      
+      <details>
+        <summary>Or copy full text manually</summary>
+        <textarea id="offerText" readonly onclick="this.select()"></textarea>
+        <button class="btn-copy" onclick="copyOffer()">📋 Copy Text</button>
+      </details>
       
       <div class="step">
         <span class="step-number">3</span>
-        <strong>Paste the answer you receive from Monitor</strong>
+        <strong>Enter code from Monitor</strong>
       </div>
-      <textarea id="answerInput" placeholder="Paste answer here..."></textarea>
-      <button class="btn-secondary" onclick="connectCamera()">✓ Connect</button>
+      <input id="answerCode" type="text" placeholder="Enter 6-digit code" maxlength="8" style="text-transform: uppercase;">
+      <button class="btn-secondary" onclick="fetchAndConnect()">✓ Connect with Code</button>
+      
+      <details>
+        <summary>Or paste full text manually</summary>
+        <textarea id="answerInput" placeholder="Paste answer here..."></textarea>
+        <button class="btn-secondary" onclick="connectCamera()">✓ Connect</button>
+      </details>
     </div>
 
     <div id="cameraStatus" class="status" style="display:none;"></div>
@@ -124,18 +169,30 @@
   <div id="monitor" class="panel">
     <div class="step">
       <span class="step-number">1</span>
-      <strong>Paste the offer from Camera device</strong>
+      <strong>Enter code from Camera</strong>
     </div>
-    <textarea id="offerInput" placeholder="Paste offer here..."></textarea>
-    <button class="btn-primary" onclick="createAnswer()">Create Answer</button>
+    <input id="offerCode" type="text" placeholder="Enter 6-digit code" maxlength="8" style="text-transform: uppercase;">
+    <button class="btn-primary" onclick="fetchAndCreateAnswer()">Get Camera Feed</button>
+
+    <details>
+      <summary>Or paste full text manually</summary>
+      <textarea id="offerInput" placeholder="Paste offer here..."></textarea>
+      <button class="btn-primary" onclick="createAnswer()">Create Answer</button>
+    </details>
 
     <div id="monitorStep2" style="display:none;">
       <div class="step">
         <span class="step-number">2</span>
-        <strong>Copy this text and send back to Camera</strong>
+        <strong>Share this code with Camera</strong>
       </div>
-      <textarea id="answerText" readonly onclick="this.select()"></textarea>
-      <button class="btn-copy" onclick="copyAnswer()">📋 Copy Answer</button>
+      <div class="code-display" id="answerCodeDisplay">------</div>
+      <button class="btn-copy" onclick="copyAnswerCode()">📋 Copy Code</button>
+      
+      <details>
+        <summary>Or copy full text manually</summary>
+        <textarea id="answerText" readonly onclick="this.select()"></textarea>
+        <button class="btn-copy" onclick="copyAnswer()">📋 Copy Text</button>
+      </details>
     </div>
 
     <div id="monitorStatus" class="status" style="display:none;"></div>
@@ -154,6 +211,7 @@
 
     let pc = null;
     let localStream = null;
+    const PASTE_API = 'https://dpaste.com/api/v2/';
 
     function showPanel(panelId) {
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -175,25 +233,72 @@
       el.style.display = 'block';
     }
 
+    function copyCode() {
+      const code = document.getElementById('shareCode').textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        showStatus('cameraStatus', '✅ Code copied! Send to Monitor.', 'success');
+      });
+    }
+
+    function copyAnswerCode() {
+      const code = document.getElementById('answerCodeDisplay').textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        showStatus('monitorStatus', '✅ Code copied! Send to Camera.', 'success');
+      });
+    }
+
     function copyOffer() {
       const text = document.getElementById('offerText');
       text.select();
       document.execCommand('copy');
-      showStatus('cameraStatus', '✅ Copied! Send this to Monitor device.', 'success');
+      showStatus('cameraStatus', '✅ Text copied!', 'success');
     }
 
     function copyAnswer() {
       const text = document.getElementById('answerText');
       text.select();
       document.execCommand('copy');
-      showStatus('monitorStatus', '✅ Copied! Send this back to Camera.', 'success');
+      showStatus('monitorStatus', '✅ Text copied!', 'success');
+    }
+
+    async function uploadToPaste(content) {
+      try {
+        const formData = new FormData();
+        formData.append('content', content);
+        formData.append('expiry_days', '1');
+        
+        const response = await fetch(PASTE_API, {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!response.ok) throw new Error('Upload failed');
+        
+        const url = await response.text();
+        // Extract code from URL (e.g., https://dpaste.com/ABCD1234)
+        const code = url.trim().split('/').pop().substring(0, 8);
+        return code;
+      } catch (err) {
+        console.error('Paste upload error:', err);
+        return null;
+      }
+    }
+
+    async function fetchFromPaste(code) {
+      try {
+        const response = await fetch(`https://dpaste.com/${code}.txt`);
+        if (!response.ok) throw new Error('Fetch failed');
+        return await response.text();
+      } catch (err) {
+        console.error('Paste fetch error:', err);
+        return null;
+      }
     }
 
     async function startCamera() {
       try {
         showStatus('cameraStatus', '📷 Starting camera...');
         
-        // Request back camera with widest angle and audio
         localStream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
             facingMode: 'environment',
@@ -220,15 +325,27 @@
           if (e.candidate) iceCandidates.push(e.candidate);
         };
 
-        pc.onicegatheringstatechange = () => {
+        pc.onicegatheringstatechange = async () => {
           if (pc.iceGatheringState === 'complete') {
             const offer = {
               sdp: pc.localDescription,
               candidates: iceCandidates
             };
-            document.getElementById('offerText').value = JSON.stringify(offer);
-            document.getElementById('cameraStep2').style.display = 'block';
-            showStatus('cameraStatus', '✅ Camera ready! Follow steps above.', 'success');
+            const offerJSON = JSON.stringify(offer);
+            document.getElementById('offerText').value = offerJSON;
+            
+            // Upload to paste service
+            showStatus('cameraStatus', '⏳ Generating share code...', '');
+            const code = await uploadToPaste(offerJSON);
+            
+            if (code) {
+              document.getElementById('shareCode').textContent = code.toUpperCase();
+              document.getElementById('cameraStep2').style.display = 'block';
+              showStatus('cameraStatus', '✅ Code ready! Share with Monitor.', 'success');
+            } else {
+              document.getElementById('cameraStep2').style.display = 'block';
+              showStatus('cameraStatus', '⚠️ Code generation failed. Use manual method.', 'error');
+            }
           }
         };
 
@@ -237,6 +354,24 @@
         
       } catch (err) {
         showStatus('cameraStatus', '❌ Error: ' + err.message, 'error');
+      }
+    }
+
+    async function fetchAndConnect() {
+      const code = document.getElementById('answerCode').value.trim().toUpperCase();
+      if (!code) {
+        showStatus('cameraStatus', '⚠️ Please enter the code from Monitor!', 'error');
+        return;
+      }
+
+      showStatus('cameraStatus', '⏳ Fetching answer...', '');
+      const answerJSON = await fetchFromPaste(code);
+      
+      if (answerJSON) {
+        document.getElementById('answerInput').value = answerJSON;
+        await connectCamera();
+      } else {
+        showStatus('cameraStatus', '❌ Invalid code. Use manual method.', 'error');
       }
     }
 
@@ -257,9 +392,27 @@
           }
         }
 
-        showStatus('cameraStatus', '✅ Connected! Monitor should see video with audio now.', 'success');
+        showStatus('cameraStatus', '✅ Connected! Monitor should see video with audio.', 'success');
       } catch (err) {
         showStatus('cameraStatus', '❌ Error: ' + err.message, 'error');
+      }
+    }
+
+    async function fetchAndCreateAnswer() {
+      const code = document.getElementById('offerCode').value.trim().toUpperCase();
+      if (!code) {
+        showStatus('monitorStatus', '⚠️ Please enter the code from Camera!', 'error');
+        return;
+      }
+
+      showStatus('monitorStatus', '⏳ Fetching camera info...', '');
+      const offerJSON = await fetchFromPaste(code);
+      
+      if (offerJSON) {
+        document.getElementById('offerInput').value = offerJSON;
+        await createAnswer();
+      } else {
+        showStatus('monitorStatus', '❌ Invalid code. Use manual method.', 'error');
       }
     }
 
@@ -286,15 +439,27 @@
           if (e.candidate) iceCandidates.push(e.candidate);
         };
 
-        pc.onicegatheringstatechange = () => {
+        pc.onicegatheringstatechange = async () => {
           if (pc.iceGatheringState === 'complete') {
             const answer = {
               sdp: pc.localDescription,
               candidates: iceCandidates
             };
-            document.getElementById('answerText').value = JSON.stringify(answer);
-            document.getElementById('monitorStep2').style.display = 'block';
-            showStatus('monitorStatus', '✅ Answer ready! Copy and send to Camera.', 'success');
+            const answerJSON = JSON.stringify(answer);
+            document.getElementById('answerText').value = answerJSON;
+            
+            // Upload to paste service
+            showStatus('monitorStatus', '⏳ Generating share code...', '');
+            const code = await uploadToPaste(answerJSON);
+            
+            if (code) {
+              document.getElementById('answerCodeDisplay').textContent = code.toUpperCase();
+              document.getElementById('monitorStep2').style.display = 'block';
+              showStatus('monitorStatus', '✅ Code ready! Share with Camera.', 'success');
+            } else {
+              document.getElementById('monitorStep2').style.display = 'block';
+              showStatus('monitorStatus', '⚠️ Code generation failed. Use manual method.', 'error');
+            }
           }
         };
 
