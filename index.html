@@ -54,10 +54,9 @@
       margin: 10px 0;
       border: 2px solid #ddd;
       border-radius: 8px;
-      font-size: 18px;
+      font-size: 16px;
       text-align: center;
-      letter-spacing: 2px;
-      font-weight: bold;
+      font-family: monospace;
     }
     textarea {
       width: 100%;
@@ -91,7 +90,7 @@
     .status.success { background: #d4edda; color: #155724; }
     .status.error { background: #f8d7da; color: #721c24; }
     .code-display {
-      font-size: 36px;
+      font-size: 28px;
       font-weight: bold;
       text-align: center;
       color: #007aff;
@@ -99,7 +98,8 @@
       background: white;
       border-radius: 12px;
       margin: 20px 0;
-      letter-spacing: 8px;
+      word-break: break-all;
+      font-family: monospace;
     }
     details {
       margin: 10px 0;
@@ -136,7 +136,7 @@
         <span class="step-number">2</span>
         <strong>Share this code with Monitor device</strong>
       </div>
-      <div class="code-display" id="shareCode">------</div>
+      <div class="code-display" id="shareCode">Generating...</div>
       <button class="btn-copy" onclick="copyCode()">📋 Copy Code</button>
       
       <details>
@@ -149,7 +149,7 @@
         <span class="step-number">3</span>
         <strong>Enter code from Monitor</strong>
       </div>
-      <input id="answerCode" type="text" placeholder="Enter code" maxlength="10" style="text-transform: uppercase;">
+      <input id="answerCode" type="text" placeholder="Paste code from Monitor">
       <button class="btn-secondary" onclick="fetchAndConnect()">✓ Connect with Code</button>
       
       <details>
@@ -171,7 +171,7 @@
       <span class="step-number">1</span>
       <strong>Enter code from Camera</strong>
     </div>
-    <input id="offerCode" type="text" placeholder="Enter code" maxlength="10" style="text-transform: uppercase;">
+    <input id="offerCode" type="text" placeholder="Paste code from Camera">
     <button class="btn-primary" onclick="fetchAndCreateAnswer()">Get Camera Feed</button>
 
     <details>
@@ -185,7 +185,7 @@
         <span class="step-number">2</span>
         <strong>Share this code with Camera</strong>
       </div>
-      <div class="code-display" id="answerCodeDisplay">------</div>
+      <div class="code-display" id="answerCodeDisplay">Generating...</div>
       <button class="btn-copy" onclick="copyAnswerCode()">📋 Copy Code</button>
       
       <details>
@@ -260,226 +260,8 @@
       showStatus('monitorStatus', '✅ Text copied!', 'success');
     }
 
-    async function uploadToPaste(content) {
+    async function uploadToGist(content) {
       try {
-        const response = await fetch('https://api.paste.ee/v1/pastes', {
+        const response = await fetch('https://api.github.com/gists', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            sections: [{
-              contents: content
-            }],
-            expiration: 86400 // 1 day
-          })
-        });
-        
-        if (!response.ok) throw new Error('Upload failed');
-        
-        const data = await response.json();
-        return data.id; // Returns short ID like "abc123"
-      } catch (err) {
-        console.error('Paste upload error:', err);
-        return null;
-      }
-    }
-
-    async function fetchFromPaste(code) {
-      try {
-        const response = await fetch(`https://api.paste.ee/v1/pastes/${code}`);
-        if (!response.ok) throw new Error('Fetch failed');
-        const data = await response.json();
-        return data.paste.sections[0].contents;
-      } catch (err) {
-        console.error('Paste fetch error:', err);
-        return null;
-      }
-    }
-
-    async function startCamera() {
-      try {
-        showStatus('cameraStatus', '📷 Starting camera...');
-        
-        localStream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: 'environment',
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-          }, 
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          }
-        });
-        
-        document.getElementById('cameraVideo').srcObject = localStream;
-        
-        pc = new RTCPeerConnection(config);
-        
-        localStream.getTracks().forEach(track => {
-          pc.addTrack(track, localStream);
-        });
-
-        const iceCandidates = [];
-        pc.onicecandidate = e => {
-          if (e.candidate) iceCandidates.push(e.candidate);
-        };
-
-        pc.onicegatheringstatechange = async () => {
-          if (pc.iceGatheringState === 'complete') {
-            const offer = {
-              sdp: pc.localDescription,
-              candidates: iceCandidates
-            };
-            const offerJSON = JSON.stringify(offer);
-            document.getElementById('offerText').value = offerJSON;
-            
-            // Upload to paste service
-            showStatus('cameraStatus', '⏳ Generating share code...', '');
-            const code = await uploadToPaste(offerJSON);
-            
-            if (code) {
-              document.getElementById('shareCode').textContent = code.toUpperCase();
-              document.getElementById('cameraStep2').style.display = 'block';
-              showStatus('cameraStatus', '✅ Code ready! Share with Monitor.', 'success');
-            } else {
-              document.getElementById('cameraStep2').style.display = 'block';
-              showStatus('cameraStatus', '⚠️ Code generation failed. Use manual method.', 'error');
-            }
-          }
-        };
-
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        
-      } catch (err) {
-        showStatus('cameraStatus', '❌ Error: ' + err.message, 'error');
-      }
-    }
-
-    async function fetchAndConnect() {
-      const code = document.getElementById('answerCode').value.trim().toLowerCase();
-      if (!code) {
-        showStatus('cameraStatus', '⚠️ Please enter the code from Monitor!', 'error');
-        return;
-      }
-
-      showStatus('cameraStatus', '⏳ Fetching answer...', '');
-      const answerJSON = await fetchFromPaste(code);
-      
-      if (answerJSON) {
-        document.getElementById('answerInput').value = answerJSON;
-        await connectCamera();
-      } else {
-        showStatus('cameraStatus', '❌ Invalid code or expired. Use manual method.', 'error');
-      }
-    }
-
-    async function connectCamera() {
-      try {
-        const input = document.getElementById('answerInput').value.trim();
-        if (!input) {
-          showStatus('cameraStatus', '⚠️ Please paste the answer first!', 'error');
-          return;
-        }
-
-        const answer = JSON.parse(input);
-        await pc.setRemoteDescription(answer.sdp);
-        
-        if (answer.candidates) {
-          for (const c of answer.candidates) {
-            await pc.addIceCandidate(c);
-          }
-        }
-
-        showStatus('cameraStatus', '✅ Connected! Monitor should see video with audio.', 'success');
-      } catch (err) {
-        showStatus('cameraStatus', '❌ Error: ' + err.message, 'error');
-      }
-    }
-
-    async function fetchAndCreateAnswer() {
-      const code = document.getElementById('offerCode').value.trim().toLowerCase();
-      if (!code) {
-        showStatus('monitorStatus', '⚠️ Please enter the code from Camera!', 'error');
-        return;
-      }
-
-      showStatus('monitorStatus', '⏳ Fetching camera info...', '');
-      const offerJSON = await fetchFromPaste(code);
-      
-      if (offerJSON) {
-        document.getElementById('offerInput').value = offerJSON;
-        await createAnswer();
-      } else {
-        showStatus('monitorStatus', '❌ Invalid code or expired. Use manual method.', 'error');
-      }
-    }
-
-    async function createAnswer() {
-      try {
-        const input = document.getElementById('offerInput').value.trim();
-        if (!input) {
-          showStatus('monitorStatus', '⚠️ Please paste the offer first!', 'error');
-          return;
-        }
-
-        showStatus('monitorStatus', '📡 Creating connection...');
-
-        const offer = JSON.parse(input);
-        pc = new RTCPeerConnection(config);
-
-        pc.ontrack = e => {
-          document.getElementById('monitorVideo').srcObject = e.streams[0];
-          showStatus('monitorStatus', '✅ Receiving video with audio!', 'success');
-        };
-
-        const iceCandidates = [];
-        pc.onicecandidate = e => {
-          if (e.candidate) iceCandidates.push(e.candidate);
-        };
-
-        pc.onicegatheringstatechange = async () => {
-          if (pc.iceGatheringState === 'complete') {
-            const answer = {
-              sdp: pc.localDescription,
-              candidates: iceCandidates
-            };
-            const answerJSON = JSON.stringify(answer);
-            document.getElementById('answerText').value = answerJSON;
-            
-            // Upload to paste service
-            showStatus('monitorStatus', '⏳ Generating share code...', '');
-            const code = await uploadToPaste(answerJSON);
-            
-            if (code) {
-              document.getElementById('answerCodeDisplay').textContent = code.toUpperCase();
-              document.getElementById('monitorStep2').style.display = 'block';
-              showStatus('monitorStatus', '✅ Code ready! Share with Camera.', 'success');
-            } else {
-              document.getElementById('monitorStep2').style.display = 'block';
-              showStatus('monitorStatus', '⚠️ Code generation failed. Use manual method.', 'error');
-            }
-          }
-        };
-
-        await pc.setRemoteDescription(offer.sdp);
-
-        if (offer.candidates) {
-          for (const c of offer.candidates) {
-            await pc.addIceCandidate(c);
-          }
-        }
-
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-
-      } catch (err) {
-        showStatus('monitorStatus', '❌ Error: ' + err.message, 'error');
-      }
-    }
-  </script>
-</body>
-</html>
+          headers
