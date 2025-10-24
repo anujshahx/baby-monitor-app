@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Baby Monitor</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -54,6 +56,20 @@
       color: #1976d2;
       text-align: center;
     }
+    #qrOffer, #qrAnswer {
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
+      padding: 20px;
+      background: white;
+      border-radius: 8px;
+    }
+    #qrScanner {
+      width: 100%;
+      margin: 10px 0;
+      border-radius: 8px;
+    }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
@@ -69,13 +85,24 @@
   <div id="camera" class="panel">
     <button class="btn-primary" onclick="startCamera()">Start Camera</button>
     
-    <label>1️⃣ Copy this OFFER and send to Monitor:</label>
-    <textarea id="cameraOffer" readonly></textarea>
-    <button onclick="copyText('cameraOffer')">📋 Copy Offer</button>
+    <label>1️⃣ Scan this QR code on Monitor device:</label>
+    <div id="qrOffer"></div>
+    
+    <details>
+      <summary>Or copy text manually</summary>
+      <textarea id="cameraOfferText" readonly></textarea>
+      <button onclick="copyText('cameraOfferText')">📋 Copy Offer</button>
+    </details>
 
-    <label>2️⃣ Paste ANSWER from Monitor here:</label>
-    <textarea id="cameraAnswer"></textarea>
-    <button class="btn-secondary" onclick="connectCamera()">Connect</button>
+    <label>2️⃣ Scan QR code from Monitor:</label>
+    <button class="btn-secondary" onclick="scanAnswerQR()">📷 Scan Answer QR</button>
+    <div id="qrScanner" class="hidden"></div>
+    
+    <details>
+      <summary>Or paste text manually</summary>
+      <textarea id="cameraAnswer"></textarea>
+      <button class="btn-secondary" onclick="connectCamera()">Connect</button>
+    </details>
 
     <div id="cameraStatus" class="status" style="display:none;"></div>
     <video id="cameraVideo" autoplay muted playsinline></video>
@@ -85,13 +112,24 @@
 
   <!-- Monitor Panel -->
   <div id="monitor" class="panel">
-    <label>1️⃣ Paste OFFER from Camera here:</label>
-    <textarea id="monitorOffer"></textarea>
-    <button class="btn-primary" onclick="createAnswer()">Create Answer</button>
+    <label>1️⃣ Scan QR code from Camera:</label>
+    <button class="btn-primary" onclick="scanOfferQR()">📷 Scan Offer QR</button>
+    <div id="qrScannerMonitor" class="hidden"></div>
+    
+    <details>
+      <summary>Or paste text manually</summary>
+      <textarea id="monitorOffer"></textarea>
+      <button class="btn-primary" onclick="createAnswer()">Create Answer</button>
+    </details>
 
-    <label>2️⃣ Copy this ANSWER and send to Camera:</label>
-    <textarea id="monitorAnswer" readonly></textarea>
-    <button onclick="copyText('monitorAnswer')">📋 Copy Answer</button>
+    <label>2️⃣ Show this QR code to Camera device:</label>
+    <div id="qrAnswer"></div>
+
+    <details>
+      <summary>Or copy text manually</summary>
+      <textarea id="monitorAnswerText" readonly></textarea>
+      <button onclick="copyText('monitorAnswerText')">📋 Copy Answer</button>
+    </details>
 
     <div id="monitorStatus" class="status" style="display:none;"></div>
     <video id="monitorVideo" autoplay playsinline></video>
@@ -111,6 +149,7 @@
     // Global variables
     let pc = null;
     let localStream = null;
+    let html5QrCode = null;
 
     // Navigation
     function showPanel(panelId) {
@@ -123,6 +162,7 @@
     function goHome() { 
       if (pc) pc.close();
       if (localStream) localStream.getTracks().forEach(t => t.stop());
+      if (html5QrCode) html5QrCode.stop().catch(() => {});
       showPanel('home'); 
     }
 
@@ -173,8 +213,20 @@
               sdp: pc.localDescription,
               candidates: iceCandidates
             };
-            document.getElementById('cameraOffer').value = JSON.stringify(offerWithCandidates);
-            showStatus('cameraStatus', '✅ Offer created! Copy and send to Monitor.');
+            const offerJSON = JSON.stringify(offerWithCandidates);
+            
+            // Generate QR code
+            document.getElementById('qrOffer').innerHTML = '';
+            new QRCode(document.getElementById('qrOffer'), {
+              text: offerJSON,
+              width: 256,
+              height: 256
+            });
+            
+            // Also set text version
+            document.getElementById('cameraOfferText').value = offerJSON;
+            
+            showStatus('cameraStatus', '✅ Offer created! Scan QR code on Monitor.');
           }
         };
 
@@ -184,6 +236,39 @@
       } catch (err) {
         showStatus('cameraStatus', '❌ Error: ' + err.message);
       }
+    }
+
+    function scanAnswerQR() {
+      const scannerDiv = document.getElementById('qrScanner');
+      scannerDiv.classList.remove('hidden');
+      
+      html5QrCode = new Html5Qrcode("qrScanner");
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        async (decodedText) => {
+          html5QrCode.stop();
+          scannerDiv.classList.add('hidden');
+          
+          try {
+            const answerData = JSON.parse(decodedText);
+            await pc.setRemoteDescription(answerData.sdp);
+            
+            if (answerData.candidates) {
+              for (const candidate of answerData.candidates) {
+                await pc.addIceCandidate(candidate);
+              }
+            }
+            
+            showStatus('cameraStatus', '✅ Connected! Monitor should see your video.');
+          } catch (err) {
+            showStatus('cameraStatus', '❌ QR scan error: ' + err.message);
+          }
+        },
+        (errorMessage) => {}
+      ).catch(err => {
+        showStatus('cameraStatus', '❌ Camera access denied for QR scanning');
+      });
     }
 
     async function connectCamera() {
@@ -211,14 +296,41 @@
     }
 
     // MONITOR SIDE
-    async function createAnswer() {
-      try {
-        const offerText = document.getElementById('monitorOffer').value.trim();
-        if (!offerText) {
-          alert('Please paste the offer from Camera first!');
-          return;
-        }
+    function scanOfferQR() {
+      const scannerDiv = document.getElementById('qrScannerMonitor');
+      scannerDiv.classList.remove('hidden');
+      
+      html5QrCode = new Html5Qrcode("qrScannerMonitor");
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        async (decodedText) => {
+          html5QrCode.stop();
+          scannerDiv.classList.add('hidden');
+          
+          try {
+            await processOffer(decodedText);
+          } catch (err) {
+            showStatus('monitorStatus', '❌ QR scan error: ' + err.message);
+          }
+        },
+        (errorMessage) => {}
+      ).catch(err => {
+        showStatus('monitorStatus', '❌ Camera access denied for QR scanning');
+      });
+    }
 
+    async function createAnswer() {
+      const offerText = document.getElementById('monitorOffer').value.trim();
+      if (!offerText) {
+        alert('Please paste the offer from Camera first!');
+        return;
+      }
+      await processOffer(offerText);
+    }
+
+    async function processOffer(offerText) {
+      try {
         showStatus('monitorStatus', '📡 Creating connection...');
 
         const offerData = JSON.parse(offerText);
@@ -244,8 +356,20 @@
               sdp: pc.localDescription,
               candidates: iceCandidates
             };
-            document.getElementById('monitorAnswer').value = JSON.stringify(answerWithCandidates);
-            showStatus('monitorStatus', '✅ Answer created! Copy and send to Camera.');
+            const answerJSON = JSON.stringify(answerWithCandidates);
+            
+            // Generate QR code
+            document.getElementById('qrAnswer').innerHTML = '';
+            new QRCode(document.getElementById('qrAnswer'), {
+              text: answerJSON,
+              width: 256,
+              height: 256
+            });
+            
+            // Also set text version
+            document.getElementById('monitorAnswerText').value = answerJSON;
+            
+            showStatus('monitorStatus', '✅ Answer created! Show QR code to Camera.');
           }
         };
 
