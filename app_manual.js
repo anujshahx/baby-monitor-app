@@ -1,25 +1,33 @@
-const showCameraBtn = document.getElementById('show-camera');
-const showMonitorBtn = document.getElementById('show-monitor');
+const servers = { iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }] };
 
+// Panels
 const cameraPanel = document.getElementById('camera-panel');
 const monitorPanel = document.getElementById('monitor-panel');
 
+// Show buttons
+const showCameraBtn = document.getElementById('show-camera');
+const showMonitorBtn = document.getElementById('show-monitor');
+
+// Camera side elements
 const startCameraBtn = document.getElementById('start-camera');
-const offerTextarea = document.getElementById('offer-sdp');
-const answerTextarea = document.getElementById('answer-sdp');
+const offerSDPTextarea = document.getElementById('offer-sdp');
+const offerCandidatesTextarea = document.getElementById('offer-candidates');
+const answerSDPTextarea = document.getElementById('answer-sdp');
+const answerCandidatesTextarea = document.getElementById('answer-candidates');
 const completeConnectionBtn = document.getElementById('complete-connection');
 const localVideo = document.getElementById('local-video');
 
+// Monitor side elements
 const monitorOfferTextarea = document.getElementById('monitor-offer');
+const monitorOfferCandidatesTextarea = document.getElementById('monitor-offer-candidates');
 const createAnswerBtn = document.getElementById('create-answer');
 const monitorAnswerTextarea = document.getElementById('monitor-answer');
+const monitorAnswerCandidatesTextarea = document.getElementById('monitor-answer-candidates');
 const remoteVideo = document.getElementById('remote-video');
 
-let localStream;
 let peerConnection;
+let localStream;
 let remoteStream;
-
-const servers = { iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }] };
 
 showCameraBtn.onclick = () => {
   monitorPanel.style.display = 'none';
@@ -31,79 +39,117 @@ showMonitorBtn.onclick = () => {
   monitorPanel.style.display = 'block';
 };
 
+// Utility function to stringify ICE candidates array for textarea
+function candidatesToString(candidates) {
+  return candidates.map(c => JSON.stringify(c)).join('\n');
+}
+
+// Parse multiple ICE candidates lines
+function stringToCandidates(str) {
+  return str.split('\n').map(line => {
+    try {
+      return JSON.parse(line);
+    } catch {
+      return null; // Skip invalid lines
+    }
+  }).filter(c => c);
+}
+
+// Camera side: start stream and create offer
 startCameraBtn.onclick = async () => {
   try {
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localVideo.srcObject = localStream;
 
     peerConnection = new RTCPeerConnection(servers);
-    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-    peerConnection.onicecandidate = () => {
-      // ICE candidate handling omitted for simplicity
+    const localCandidates = [];
+    peerConnection.onicecandidate = event => {
+      if (event.candidate) {
+        localCandidates.push(event.candidate);
+        offerCandidatesTextarea.value = candidatesToString(localCandidates);
+      }
     };
+
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
 
-    offerTextarea.value = JSON.stringify(peerConnection.localDescription);
+    offerSDPTextarea.value = JSON.stringify(peerConnection.localDescription);
   } catch (err) {
-    alert('Error accessing camera/microphone or creating offer: ' + err.message);
+    alert('Error starting camera or creating offer: ' + err.message);
   }
 };
 
+// Camera side: complete connection by applying answer and answer ICE candidates
 completeConnectionBtn.onclick = async () => {
   try {
-    const answerText = answerTextarea.value.trim();
-    if (!answerText) {
-      alert('Please paste the SDP Answer first.');
-      return;
+    const answerText = answerSDPTextarea.value.trim();
+    const answerCandidatesText = answerCandidatesTextarea.value.trim();
+
+    if (!answerText) return alert('Paste the SDP Answer from monitor.');
+
+    const answerDesc = JSON.parse(answerText);
+    if (!answerDesc.type || !answerDesc.sdp) return alert('Invalid SDP Answer.');
+
+    await peerConnection.setRemoteDescription(answerDesc);
+
+    if (answerCandidatesText) {
+      const candidates = stringToCandidates(answerCandidatesText);
+      for (const candidate of candidates) {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      }
     }
-    const answer = JSON.parse(answerText);
-    if (!answer.type || !answer.sdp) {
-      alert('Invalid SDP Answer format.');
-      return;
-    }
-    await peerConnection.setRemoteDescription(answer);
-    alert('Connection complete! You should see the stream.');
+
+    alert('Connection complete! Streaming should start shortly.');
   } catch (e) {
-    alert('Invalid JSON in SDP Answer: ' + e.message);
+    alert('Error applying answer or ICE candidates: ' + e.message);
   }
 };
 
+// Monitor side: create answer after receiving offer and offer ICE candidates
 createAnswerBtn.onclick = async () => {
   try {
     const offerText = monitorOfferTextarea.value.trim();
-    if (!offerText) {
-      alert('Please paste the SDP Offer first.');
-      return;
-    }
-    const offer = JSON.parse(offerText);
-    if (!offer.type || !offer.sdp) {
-      alert('Invalid SDP Offer format.');
-      return;
-    }
+    const offerCandidatesText = monitorOfferCandidatesTextarea.value.trim();
+
+    if (!offerText) return alert('Paste the SDP Offer from camera.');
+
+    const offerDesc = JSON.parse(offerText);
+    if (!offerDesc.type || !offerDesc.sdp) return alert('Invalid SDP Offer.');
 
     peerConnection = new RTCPeerConnection(servers);
 
+    remoteStream = new MediaStream();
+    remoteVideo.srcObject = remoteStream;
+
     peerConnection.ontrack = event => {
-      if (!remoteStream) {
-        remoteStream = new MediaStream();
-        remoteVideo.srcObject = remoteStream;
-      }
       remoteStream.addTrack(event.track);
     };
 
-    peerConnection.onicecandidate = () => {
-      // ICE candidate handling omitted for simplicity
+    const remoteCandidates = [];
+    peerConnection.onicecandidate = event => {
+      if (event.candidate) {
+        remoteCandidates.push(event.candidate);
+        monitorAnswerCandidatesTextarea.value = candidatesToString(remoteCandidates);
+      }
     };
 
-    await peerConnection.setRemoteDescription(offer);
+    if (offerCandidatesText) {
+      const candidates = stringToCandidates(offerCandidatesText);
+      for (const candidate of candidates) {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      }
+    }
+
+    await peerConnection.setRemoteDescription(offerDesc);
 
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
 
     monitorAnswerTextarea.value = JSON.stringify(peerConnection.localDescription);
+    alert('Answer created! Send the SDP and candidates back to camera device.');
   } catch (e) {
     alert('Error creating answer: ' + e.message);
   }
