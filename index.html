@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Baby Monitor - Manual Signaling</title>
+  <title>Baby Monitor - Manual Signaling with ICE</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -16,7 +16,7 @@
     }
     textarea {
       width: 100%;
-      height: 120px;
+      height: 100px;
       margin: 0.5rem 0;
       font-family: monospace;
       font-size: 0.9rem;
@@ -38,33 +38,55 @@
       border-radius: 8px;
       background: black;
     }
+    h2 {
+      margin-top: 1rem;
+    }
   </style>
 </head>
 <body>
-  <h1>Baby Monitor - Manual Signaling</h1>
+  <h1>Baby Monitor - Manual Signaling with ICE</h1>
 
   <div id="camera-panel" style="display:none;">
-    <button id="start-camera">Use this device as Camera</button>
-    <p>1. Copy the SDP Offer below and send it to Monitor device:</p>
-    <textarea id="offer-sdp" readonly></textarea>
-    <p>2. Paste SDP Answer from Monitor device here:</p>
+    <button id="start-camera">Start as Camera</button>
+
+    <h2>1. SDP Offer (send to Monitor)</h2>
+    <textarea id="offer-sdp" readonly placeholder="Offer SDP will appear here"></textarea>
+
+    <h2>2. ICE Candidates from Camera (send to Monitor)</h2>
+    <textarea id="offer-candidates" readonly placeholder="ICE candidates will appear here"></textarea>
+
+    <h2>3. Paste SDP Answer (from Monitor)</h2>
     <textarea id="answer-sdp"></textarea>
+
+    <h2>4. Paste ICE Candidates from Monitor</h2>
+    <textarea id="answer-candidates"></textarea>
+
     <button id="complete-connection">Complete Connection</button>
+
     <video id="local-video" autoplay muted playsinline></video>
   </div>
 
   <div id="monitor-panel" style="display:none;">
-    <p>Paste SDP Offer from Camera device here:</p>
+    <h2>1. Paste SDP Offer (from Camera)</h2>
     <textarea id="monitor-offer"></textarea>
+
+    <h2>2. Paste ICE Candidates from Camera</h2>
+    <textarea id="monitor-offer-candidates"></textarea>
+
     <button id="create-answer">Create Answer</button>
-    <p>Copy the SDP Answer below and send it back to Camera device:</p>
-    <textarea id="monitor-answer" readonly></textarea>
+
+    <h2>3. SDP Answer (send to Camera)</h2>
+    <textarea id="monitor-answer" readonly placeholder="Answer SDP will appear here"></textarea>
+
+    <h2>4. ICE Candidates from Monitor (send to Camera)</h2>
+    <textarea id="monitor-answer-candidates" readonly placeholder="ICE candidates will appear here"></textarea>
+
     <video id="remote-video" autoplay playsinline></video>
   </div>
 
-  <button id="show-camera">Go to Camera</button>
-  <button id="show-monitor">Go to Monitor</button>
+  <button id="show-camera">Use this device as Camera</button>
+  <button id="show-monitor">Use this device as Monitor</button>
 
-  <script src="app_manual.js"></script>
+  <script src="app_manual_ice.js"></script>
 </body>
 </html>
