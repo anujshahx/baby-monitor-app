@@ -176,10 +176,11 @@
             const offerJSON = JSON.stringify(offerWithCandidates);
             
             // Clear previous QR code
-            document.getElementById('qrOfferContainer').innerHTML = '';
+            const container = document.getElementById('qrOfferContainer');
+            container.innerHTML = '';
             
-            // Generate NEW QR code using QRCode library
-            new QRCode(document.getElementById('qrOfferContainer'), {
+            // Generate QR code - CORRECT METHOD
+            new QRCode(container, {
               text: offerJSON,
               width: 256,
               height: 256,
@@ -260,10 +261,11 @@
             const answerJSON = JSON.stringify(answerWithCandidates);
             
             // Clear previous QR code
-            document.getElementById('qrAnswerContainer').innerHTML = '';
+            const container = document.getElementById('qrAnswerContainer');
+            container.innerHTML = '';
             
-            // Generate NEW QR code using QRCode library
-            new QRCode(document.getElementById('qrAnswerContainer'), {
+            // Generate QR code - CORRECT METHOD
+            new QRCode(container, {
               text: answerJSON,
               width: 256,
               height: 256,
