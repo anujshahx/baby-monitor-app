@@ -32,42 +32,55 @@ showMonitorBtn.onclick = () => {
 };
 
 startCameraBtn.onclick = async () => {
-  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-  localVideo.srcObject = localStream;
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    localVideo.srcObject = localStream;
 
-  peerConnection = new RTCPeerConnection(servers);
-  localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+    peerConnection = new RTCPeerConnection(servers);
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-  peerConnection.onicecandidate = event => {
-    if (event.candidate) {
-      // For simplicity ignoring ICE candidate exchange here
-    }
-  };
+    peerConnection.onicecandidate = () => {
+      // ICE candidate handling omitted for simplicity
+    };
 
-  const offer = await peerConnection.createOffer();
-  await peerConnection.setLocalDescription(offer);
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
 
-  offerTextarea.value = JSON.stringify(peerConnection.localDescription);
+    offerTextarea.value = JSON.stringify(peerConnection.localDescription);
+  } catch (err) {
+    alert('Error accessing camera/microphone or creating offer: ' + err.message);
+  }
 };
 
 completeConnectionBtn.onclick = async () => {
   try {
-    const answer = JSON.parse(answerTextarea.value);
-    if (!answer || !answer.type || !answer.sdp) {
-      alert('Invalid SDP Answer');
+    const answerText = answerTextarea.value.trim();
+    if (!answerText) {
+      alert('Please paste the SDP Answer first.');
+      return;
+    }
+    const answer = JSON.parse(answerText);
+    if (!answer.type || !answer.sdp) {
+      alert('Invalid SDP Answer format.');
       return;
     }
     await peerConnection.setRemoteDescription(answer);
-  } catch {
-    alert('Invalid JSON in SDP Answer');
+    alert('Connection complete! You should see the stream.');
+  } catch (e) {
+    alert('Invalid JSON in SDP Answer: ' + e.message);
   }
 };
 
 createAnswerBtn.onclick = async () => {
   try {
-    const offer = JSON.parse(monitorOfferTextarea.value);
-    if (!offer || !offer.type || !offer.sdp) {
-      alert('Invalid SDP Offer');
+    const offerText = monitorOfferTextarea.value.trim();
+    if (!offerText) {
+      alert('Please paste the SDP Offer first.');
+      return;
+    }
+    const offer = JSON.parse(offerText);
+    if (!offer.type || !offer.sdp) {
+      alert('Invalid SDP Offer format.');
       return;
     }
 
@@ -81,18 +94,17 @@ createAnswerBtn.onclick = async () => {
       remoteStream.addTrack(event.track);
     };
 
-    peerConnection.onicecandidate = event => {
-      if (event.candidate) {
-        // ICE candidate handling skipped here
-      }
+    peerConnection.onicecandidate = () => {
+      // ICE candidate handling omitted for simplicity
     };
 
     await peerConnection.setRemoteDescription(offer);
 
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
+
     monitorAnswerTextarea.value = JSON.stringify(peerConnection.localDescription);
-  } catch {
-    alert('Invalid SDP Offer JSON');
+  } catch (e) {
+    alert('Error creating answer: ' + e.message);
   }
 };
