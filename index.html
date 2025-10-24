@@ -1,92 +1,269 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Baby Monitor - Manual Signaling with ICE</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Baby Monitor</title>
   <style>
+    * { box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background-color: #f0f2f5;
-      padding: 1rem;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
       margin: 0;
-      max-width: 500px;
-      margin-left: auto;
-      margin-right: auto;
+      padding: 20px;
+      max-width: 600px;
+      margin: 0 auto;
     }
+    h1 { text-align: center; color: #333; }
+    button {
+      width: 100%;
+      padding: 15px;
+      margin: 10px 0;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn-primary { background: #007aff; color: white; }
+    .btn-secondary { background: #34c759; color: white; }
     textarea {
       width: 100%;
-      height: 100px;
-      margin: 0.5rem 0;
+      min-height: 100px;
+      padding: 10px;
+      margin: 10px 0;
+      border: 2px solid #ddd;
+      border-radius: 8px;
       font-family: monospace;
-      font-size: 0.9rem;
-    }
-    button {
-      cursor: pointer;
-      padding: 0.8rem;
-      margin: 0.5rem 0;
-      width: 100%;
-      border-radius: 5px;
-      border: none;
-      background-color: #007aff;
-      color: white;
-      font-size: 1rem;
+      font-size: 12px;
     }
     video {
       width: 100%;
-      margin-top: 1rem;
       border-radius: 8px;
       background: black;
+      margin: 10px 0;
     }
-    h2 {
-      margin-top: 1rem;
+    .panel { display: none; }
+    .panel.active { display: block; }
+    label { font-weight: 600; color: #555; display: block; margin-top: 15px; }
+    .status { 
+      padding: 10px; 
+      margin: 10px 0; 
+      border-radius: 5px; 
+      background: #e3f2fd; 
+      color: #1976d2;
+      text-align: center;
     }
   </style>
 </head>
 <body>
-  <h1>Baby Monitor - Manual Signaling with ICE</h1>
+  <h1>📹 Baby Monitor</h1>
 
-  <div id="camera-panel" style="display:none;">
-    <button id="start-camera">Start as Camera</button>
-
-    <h2>1. SDP Offer (send to Monitor)</h2>
-    <textarea id="offer-sdp" readonly placeholder="Offer SDP will appear here"></textarea>
-
-    <h2>2. ICE Candidates from Camera (send to Monitor)</h2>
-    <textarea id="offer-candidates" readonly placeholder="ICE candidates will appear here"></textarea>
-
-    <h2>3. Paste SDP Answer (from Monitor)</h2>
-    <textarea id="answer-sdp"></textarea>
-
-    <h2>4. Paste ICE Candidates from Monitor</h2>
-    <textarea id="answer-candidates"></textarea>
-
-    <button id="complete-connection">Complete Connection</button>
-
-    <video id="local-video" autoplay muted playsinline></video>
+  <!-- Home Screen -->
+  <div id="home" class="panel active">
+    <button class="btn-primary" onclick="showCamera()">Use as Camera 📷</button>
+    <button class="btn-secondary" onclick="showMonitor()">Use as Monitor 📺</button>
   </div>
 
-  <div id="monitor-panel" style="display:none;">
-    <h2>1. Paste SDP Offer (from Camera)</h2>
-    <textarea id="monitor-offer"></textarea>
+  <!-- Camera Panel -->
+  <div id="camera" class="panel">
+    <button class="btn-primary" onclick="startCamera()">Start Camera</button>
+    
+    <label>1️⃣ Copy this OFFER and send to Monitor:</label>
+    <textarea id="cameraOffer" readonly></textarea>
+    <button onclick="copyText('cameraOffer')">📋 Copy Offer</button>
 
-    <h2>2. Paste ICE Candidates from Camera</h2>
-    <textarea id="monitor-offer-candidates"></textarea>
+    <label>2️⃣ Paste ANSWER from Monitor here:</label>
+    <textarea id="cameraAnswer"></textarea>
+    <button class="btn-secondary" onclick="connectCamera()">Connect</button>
 
-    <button id="create-answer">Create Answer</button>
-
-    <h2>3. SDP Answer (send to Camera)</h2>
-    <textarea id="monitor-answer" readonly placeholder="Answer SDP will appear here"></textarea>
-
-    <h2>4. ICE Candidates from Monitor (send to Camera)</h2>
-    <textarea id="monitor-answer-candidates" readonly placeholder="ICE candidates will appear here"></textarea>
-
-    <video id="remote-video" autoplay playsinline></video>
+    <div id="cameraStatus" class="status" style="display:none;"></div>
+    <video id="cameraVideo" autoplay muted playsinline></video>
+    
+    <button onclick="goHome()">← Back to Home</button>
   </div>
 
-  <button id="show-camera">Use this device as Camera</button>
-  <button id="show-monitor">Use this device as Monitor</button>
+  <!-- Monitor Panel -->
+  <div id="monitor" class="panel">
+    <label>1️⃣ Paste OFFER from Camera here:</label>
+    <textarea id="monitorOffer"></textarea>
+    <button class="btn-primary" onclick="createAnswer()">Create Answer</button>
 
-  <script src="app_manual_ice.js"></script>
+    <label>2️⃣ Copy this ANSWER and send to Camera:</label>
+    <textarea id="monitorAnswer" readonly></textarea>
+    <button onclick="copyText('monitorAnswer')">📋 Copy Answer</button>
+
+    <div id="monitorStatus" class="status" style="display:none;"></div>
+    <video id="monitorVideo" autoplay playsinline></video>
+    
+    <button onclick="goHome()">← Back to Home</button>
+  </div>
+
+  <script>
+    // Configuration
+    const config = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    };
+
+    // Global variables
+    let pc = null;
+    let localStream = null;
+
+    // Navigation
+    function showPanel(panelId) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.getElementById(panelId).classList.add('active');
+    }
+
+    function showCamera() { showPanel('camera'); }
+    function showMonitor() { showPanel('monitor'); }
+    function goHome() { 
+      if (pc) pc.close();
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
+      showPanel('home'); 
+    }
+
+    // Utility
+    function copyText(id) {
+      const el = document.getElementById(id);
+      el.select();
+      document.execCommand('copy');
+      alert('✅ Copied to clipboard!');
+    }
+
+    function showStatus(id, msg) {
+      const el = document.getElementById(id);
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    // CAMERA SIDE
+    async function startCamera() {
+      try {
+        showStatus('cameraStatus', '📷 Starting camera...');
+        
+        localStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'environment' }, 
+          audio: true 
+        });
+        
+        document.getElementById('cameraVideo').srcObject = localStream;
+        
+        pc = new RTCPeerConnection(config);
+        
+        localStream.getTracks().forEach(track => {
+          pc.addTrack(track, localStream);
+        });
+
+        // Collect all ICE candidates
+        const iceCandidates = [];
+        pc.onicecandidate = e => {
+          if (e.candidate) {
+            iceCandidates.push(e.candidate);
+          }
+        };
+
+        // Wait for ICE gathering to complete
+        pc.onicegatheringstatechange = () => {
+          if (pc.iceGatheringState === 'complete') {
+            const offerWithCandidates = {
+              sdp: pc.localDescription,
+              candidates: iceCandidates
+            };
+            document.getElementById('cameraOffer').value = JSON.stringify(offerWithCandidates);
+            showStatus('cameraStatus', '✅ Offer created! Copy and send to Monitor.');
+          }
+        };
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        
+      } catch (err) {
+        showStatus('cameraStatus', '❌ Error: ' + err.message);
+      }
+    }
+
+    async function connectCamera() {
+      try {
+        const answerText = document.getElementById('cameraAnswer').value.trim();
+        if (!answerText) {
+          alert('Please paste the answer from Monitor first!');
+          return;
+        }
+
+        const answerData = JSON.parse(answerText);
+        
+        await pc.setRemoteDescription(answerData.sdp);
+        
+        if (answerData.candidates) {
+          for (const candidate of answerData.candidates) {
+            await pc.addIceCandidate(candidate);
+          }
+        }
+
+        showStatus('cameraStatus', '✅ Connected! Monitor should see your video.');
+      } catch (err) {
+        showStatus('cameraStatus', '❌ Error: ' + err.message);
+      }
+    }
+
+    // MONITOR SIDE
+    async function createAnswer() {
+      try {
+        const offerText = document.getElementById('monitorOffer').value.trim();
+        if (!offerText) {
+          alert('Please paste the offer from Camera first!');
+          return;
+        }
+
+        showStatus('monitorStatus', '📡 Creating connection...');
+
+        const offerData = JSON.parse(offerText);
+        
+        pc = new RTCPeerConnection(config);
+
+        pc.ontrack = e => {
+          document.getElementById('monitorVideo').srcObject = e.streams[0];
+          showStatus('monitorStatus', '✅ Receiving video from Camera!');
+        };
+
+        // Collect ICE candidates
+        const iceCandidates = [];
+        pc.onicecandidate = e => {
+          if (e.candidate) {
+            iceCandidates.push(e.candidate);
+          }
+        };
+
+        pc.onicegatheringstatechange = () => {
+          if (pc.iceGatheringState === 'complete') {
+            const answerWithCandidates = {
+              sdp: pc.localDescription,
+              candidates: iceCandidates
+            };
+            document.getElementById('monitorAnswer').value = JSON.stringify(answerWithCandidates);
+            showStatus('monitorStatus', '✅ Answer created! Copy and send to Camera.');
+          }
+        };
+
+        await pc.setRemoteDescription(offerData.sdp);
+
+        if (offerData.candidates) {
+          for (const candidate of offerData.candidates) {
+            await pc.addIceCandidate(candidate);
+          }
+        }
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+      } catch (err) {
+        showStatus('monitorStatus', '❌ Error: ' + err.message);
+      }
+    }
+  </script>
 </body>
 </html>
