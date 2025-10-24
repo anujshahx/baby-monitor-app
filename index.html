@@ -3,94 +3,68 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Baby Monitor - Serverless WebRTC</title>
-
-  <!-- QR Code Libraries -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-
+  <title>Baby Monitor - Manual Signaling</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       background-color: #f0f2f5;
       padding: 1rem;
       margin: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      flex-direction: column;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
     }
-    h1 {
-      margin-bottom: 1rem;
+    textarea {
+      width: 100%;
+      height: 120px;
+      margin: 0.5rem 0;
+      font-family: monospace;
+      font-size: 0.9rem;
     }
     button {
-      font-size: 1.1rem;
-      padding: 0.8rem 1.2rem;
-      margin: 0.5rem;
-      border-radius: 8px;
-      border: none;
       cursor: pointer;
+      padding: 0.8rem;
+      margin: 0.5rem 0;
+      width: 100%;
+      border-radius: 5px;
+      border: none;
       background-color: #007aff;
       color: white;
-      width: 200px;
+      font-size: 1rem;
     }
     video {
       width: 100%;
-      max-width: 100%;
-      border-radius: 8px;
-      margin: 1rem 0;
-      background-color: black;
-    }
-    #qr-code, #qr-scanner, #answer-qr-code, #qr-scanner-monitor {
-      margin: 1rem auto;
-      width: 250px;
-      height: 250px;
-      border-radius: 12px;
-      background: white;
-    }
-    #status, #status-monitor {
       margin-top: 1rem;
-      font-weight: bold;
-      min-height: 1.2em;
+      border-radius: 8px;
+      background: black;
     }
   </style>
 </head>
 <body>
-  <h1>Baby Monitor - Serverless WebRTC</h1>
+  <h1>Baby Monitor - Manual Signaling</h1>
 
-  <div id="home-screen">
-    <button id="start-camera">Start as Camera</button>
-    <button id="start-monitor">Start as Monitor</button>
-  </div>
-
-  <div id="camera-screen" style="display:none;">
-    <p>1. Create Offer - Scan this QR code from the Monitor phone</p>
-    <div id="qr-code"></div>
-
-    <p>2. Scan Answer from the Monitor phone</p>
-    <button id="scan-answer">Scan Answer QR Code</button>
-    <div id="qr-scanner" style="display:none;"></div>
-
+  <div id="camera-panel" style="display:none;">
+    <button id="start-camera">Use this device as Camera</button>
+    <p>1. Copy the SDP Offer below and send it to Monitor device:</p>
+    <textarea id="offer-sdp" readonly></textarea>
+    <p>2. Paste SDP Answer from Monitor device here:</p>
+    <textarea id="answer-sdp"></textarea>
+    <button id="complete-connection">Complete Connection</button>
     <video id="local-video" autoplay muted playsinline></video>
-    <p id="status"></p>
-
-    <button id="restart-camera">Back to Start</button>
   </div>
 
-  <div id="monitor-screen" style="display:none;">
-    <button id="scan-offer">1. Scan Offer QR Code from Camera</button>
-    <div id="qr-scanner-monitor" style="display:none;"></div>
-
-    <p>2. Show Answer QR Code - Scan this with Camera phone</p>
-    <div id="answer-qr-code"></div>
-
+  <div id="monitor-panel" style="display:none;">
+    <p>Paste SDP Offer from Camera device here:</p>
+    <textarea id="monitor-offer"></textarea>
+    <button id="create-answer">Create Answer</button>
+    <p>Copy the SDP Answer below and send it back to Camera device:</p>
+    <textarea id="monitor-answer" readonly></textarea>
     <video id="remote-video" autoplay playsinline></video>
-    <p id="status-monitor"></p>
-
-    <button id="restart-monitor">Back to Start</button>
   </div>
 
-  <script src="app.js"></script>
+  <button id="show-camera">Go to Camera</button>
+  <button id="show-monitor">Go to Monitor</button>
+
+  <script src="app_manual.js"></script>
 </body>
 </html>
