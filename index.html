@@ -48,7 +48,6 @@
     .btn-secondary { background: #34c759; color: white; }
     .btn-copy { background: #ff9500; color: white; }
     .btn-danger { background: #ff3b30; color: white; }
-    .btn-flip { background: #5856d6; color: white; }
     textarea {
       width: 100%;
       min-height: 120px;
@@ -80,10 +79,6 @@
     }
     .status.success { background: #d4edda; color: #155724; }
     .status.error { background: #f8d7da; color: #721c24; }
-    .video-controls {
-      display: none;
-      margin: 10px 0;
-    }
   </style>
 </head>
 <body>
@@ -102,10 +97,6 @@
       <strong>Start your camera</strong>
     </div>
     <button class="btn-primary" onclick="startCamera()">Start Camera</button>
-    
-    <div id="videoControls" class="video-controls">
-      <button class="btn-flip" onclick="flipCamera()">🔄 Flip Camera</button>
-    </div>
     
     <div id="cameraStep2" style="display:none;">
       <div class="step">
@@ -163,7 +154,6 @@
 
     let pc = null;
     let localStream = null;
-    let currentFacingMode = 'environment'; // Start with back camera
 
     function showPanel(panelId) {
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -199,37 +189,26 @@
       showStatus('monitorStatus', '✅ Copied! Send this back to Camera.', 'success');
     }
 
-    async function startCamera(facingMode = 'environment') {
+    async function startCamera() {
       try {
         showStatus('cameraStatus', '📷 Starting camera...');
         
-        // Stop existing stream if any
-        if (localStream) {
-          localStream.getTracks().forEach(t => t.stop());
-        }
-
-        currentFacingMode = facingMode;
-        
+        // Request back camera with widest angle and audio
         localStream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: facingMode }, 
-          audio: true 
+          video: { 
+            facingMode: 'environment',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          }, 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
         });
         
         document.getElementById('cameraVideo').srcObject = localStream;
-        document.getElementById('videoControls').style.display = 'block';
         
-        // If peer connection already exists, replace tracks
-        if (pc) {
-          const videoTrack = localStream.getVideoTracks()[0];
-          const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-          if (sender) {
-            sender.replaceTrack(videoTrack);
-            showStatus('cameraStatus', '✅ Camera flipped!', 'success');
-            return;
-          }
-        }
-
-        // Create new peer connection
         pc = new RTCPeerConnection(config);
         
         localStream.getTracks().forEach(track => {
@@ -261,11 +240,6 @@
       }
     }
 
-    async function flipCamera() {
-      const newFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
-      await startCamera(newFacingMode);
-    }
-
     async function connectCamera() {
       try {
         const input = document.getElementById('answerInput').value.trim();
@@ -283,7 +257,7 @@
           }
         }
 
-        showStatus('cameraStatus', '✅ Connected! Monitor should see video now.', 'success');
+        showStatus('cameraStatus', '✅ Connected! Monitor should see video with audio now.', 'success');
       } catch (err) {
         showStatus('cameraStatus', '❌ Error: ' + err.message, 'error');
       }
@@ -304,7 +278,7 @@
 
         pc.ontrack = e => {
           document.getElementById('monitorVideo').srcObject = e.streams[0];
-          showStatus('monitorStatus', '✅ Receiving video!', 'success');
+          showStatus('monitorStatus', '✅ Receiving video with audio!', 'success');
         };
 
         const iceCandidates = [];
