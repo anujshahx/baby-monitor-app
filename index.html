@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Baby Monitor</title>
+  <!-- RELIABLE QR CODE LIBRARY FROM CDNJS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -62,14 +64,8 @@
       padding: 20px;
       background: white;
       border-radius: 8px;
+      min-height: 280px;
     }
-    #qrScanner {
-      width: 100%;
-      margin: 10px 0;
-      border-radius: 8px;
-    }
-    .hidden { display: none !important; }
-    canvas { border-radius: 8px; }
   </style>
 </head>
 <body>
@@ -86,10 +82,7 @@
     <button class="btn-primary" onclick="startCamera()">Start Camera</button>
     
     <label>1️⃣ Scan this QR code on Monitor device:</label>
-    <div class="qr-container">
-      <canvas id="qrOffer"></canvas>
-    </div>
-    <textarea id="cameraOfferText" readonly style="display:none;"></textarea>
+    <div class="qr-container" id="qrOfferContainer"></div>
 
     <label>2️⃣ Paste answer from Monitor:</label>
     <textarea id="cameraAnswer" placeholder="Paste the answer text here"></textarea>
@@ -107,20 +100,14 @@
     <textarea id="monitorOffer" placeholder="Paste the offer text here"></textarea>
     <button class="btn-primary" onclick="createAnswer()">Create Answer</button>
 
-    <label>2️⃣ Show this QR code to Camera device:</label>
-    <div class="qr-container">
-      <canvas id="qrAnswer"></canvas>
-    </div>
-    <textarea id="monitorAnswerText" readonly style="display:none;"></textarea>
+    <label>2️⃣ Scan this QR code on Camera device:</label>
+    <div class="qr-container" id="qrAnswerContainer"></div>
 
     <div id="monitorStatus" class="status" style="display:none;"></div>
     <video id="monitorVideo" autoplay playsinline></video>
     
     <button class="btn-danger" onclick="goHome()">← Back to Home</button>
   </div>
-
-  <!-- QR Code Library -->
-  <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
 
   <script>
     // Configuration
@@ -153,23 +140,6 @@
       const el = document.getElementById(id);
       el.textContent = msg;
       el.style.display = 'block';
-    }
-
-    function generateQRCode(canvasId, text) {
-      const canvas = document.getElementById(canvasId);
-      const size = 256;
-      
-      // Use QRCode library to generate directly on canvas
-      QRCode.toCanvas(canvas, text, {
-        width: size,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#ffffff'
-        }
-      }, function (error) {
-        if (error) console.error(error);
-      });
     }
 
     // CAMERA SIDE
@@ -205,11 +175,18 @@
             };
             const offerJSON = JSON.stringify(offerWithCandidates);
             
-            // Generate QR code
-            generateQRCode('qrOffer', offerJSON);
+            // Clear previous QR code
+            document.getElementById('qrOfferContainer').innerHTML = '';
             
-            // Also save to textarea for manual copy
-            document.getElementById('cameraOfferText').value = offerJSON;
+            // Generate NEW QR code using QRCode library
+            new QRCode(document.getElementById('qrOfferContainer'), {
+              text: offerJSON,
+              width: 256,
+              height: 256,
+              colorDark: '#000000',
+              colorLight: '#ffffff',
+              correctLevel: QRCode.CorrectLevel.H
+            });
             
             showStatus('cameraStatus', '✅ QR Code ready! Scan on Monitor device.');
           }
@@ -282,11 +259,18 @@
             };
             const answerJSON = JSON.stringify(answerWithCandidates);
             
-            // Generate QR code
-            generateQRCode('qrAnswer', answerJSON);
+            // Clear previous QR code
+            document.getElementById('qrAnswerContainer').innerHTML = '';
             
-            // Also save to textarea
-            document.getElementById('monitorAnswerText').value = answerJSON;
+            // Generate NEW QR code using QRCode library
+            new QRCode(document.getElementById('qrAnswerContainer'), {
+              text: answerJSON,
+              width: 256,
+              height: 256,
+              colorDark: '#000000',
+              colorLight: '#ffffff',
+              correctLevel: QRCode.CorrectLevel.H
+            });
             
             showStatus('monitorStatus', '✅ QR Code ready! Scan on Camera device.');
           }
