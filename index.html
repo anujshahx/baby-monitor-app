@@ -487,6 +487,7 @@
     let audioContext = null;
     let oscillator = null;
     let gainNode = null;
+    let pingInterval = null;
 
     function showPanel(panelId) {
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -496,6 +497,7 @@
     function showMonitor() { showPanel('monitor'); }
     
     function goHome() { 
+      if (pingInterval) clearInterval(pingInterval);
       if (pc) pc.close();
       if (localStream) localStream.getTracks().forEach(t => t.stop());
       if (monitorMicStream) monitorMicStream.getTracks().forEach(t => t.stop());
@@ -516,6 +518,11 @@
       });
       document.getElementById('soundHint').textContent = '🎵 Sounds ready!';
       document.getElementById('soundHint').style.opacity = '1';
+      
+      if (pingInterval) {
+        clearInterval(pingInterval);
+        pingInterval = null;
+      }
     }
 
     function copyOffer() {
@@ -575,7 +582,6 @@
             console.log('[CAMERA] Received:', command);
             
             if (command.action === 'ping') {
-              // Monitor is asking if we're ready - respond yes!
               console.log('[CAMERA] Received ping, sending ready');
               dataChannel.send(JSON.stringify({ action: 'ready' }));
             } else if (command.action === 'play') {
@@ -766,9 +772,22 @@
         console.log('[MONITOR] DataChannel created');
         
         dataChannel.onopen = () => {
-          console.log('[MONITOR] DataChannel opened - sending ping');
-          // Send ping to camera to check if it's ready
-          dataChannel.send(JSON.stringify({ action: 'ping' }));
+          console.log('[MONITOR] DataChannel opened - starting persistent ping');
+          
+          // Send ping immediately
+          if (dataChannel.readyState === 'open') {
+            dataChannel.send(JSON.stringify({ action: 'ping' }));
+          }
+          
+          // Keep pinging every second until we get a response
+          pingInterval = setInterval(() => {
+            if (dataChannel && dataChannel.readyState === 'open') {
+              console.log('[MONITOR] Sending ping...');
+              dataChannel.send(JSON.stringify({ action: 'ping' }));
+            } else {
+              clearInterval(pingInterval);
+            }
+          }, 1000);
         };
 
         dataChannel.onmessage = e => {
