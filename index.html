@@ -5,143 +5,351 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Baby Monitor</title>
   <style>
-    * { box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f5f5f5;
+    * { 
+      box-sizing: border-box; 
       margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
       padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .container {
       max-width: 600px;
-      margin: 0 auto;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
     }
-    h1 { text-align: center; color: #333; }
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 30px;
+      text-align: center;
+      color: white;
+    }
+    
+    .header h1 {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 5px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    
+    .header p {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    
+    .content {
+      padding: 30px;
+    }
+    
     .step { 
-      background: white; 
-      padding: 15px; 
-      margin: 15px 0; 
-      border-radius: 8px;
-      border-left: 4px solid #007aff;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 15px;
+      border-left: 5px solid #667eea;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
+    
+    .step-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
     .step-number {
-      display: inline-block;
-      width: 30px;
-      height: 30px;
-      background: #007aff;
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       border-radius: 50%;
-      text-align: center;
-      line-height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-weight: bold;
-      margin-right: 10px;
+      font-size: 18px;
+      margin-right: 15px;
+      box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
     }
+    
+    .step-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #2d3748;
+    }
+    
     button {
       width: 100%;
-      padding: 15px;
-      margin: 10px 0;
+      padding: 16px;
+      margin: 12px 0;
       font-size: 16px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
       font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      position: relative;
+      overflow: hidden;
     }
-    .btn-primary { background: #007aff; color: white; }
-    .btn-secondary { background: #34c759; color: white; }
-    .btn-copy { background: #ff9500; color: white; }
-    .btn-danger { background: #ff3b30; color: white; }
+    
+    button:before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.2);
+      transition: left 0.5s ease;
+    }
+    
+    button:hover:before {
+      left: 100%;
+    }
+    
+    button:active {
+      transform: scale(0.98);
+    }
+    
+    .btn-primary { 
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+      transform: translateY(-2px);
+    }
+    
+    .btn-secondary { 
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      color: white;
+    }
+    
+    .btn-secondary:hover {
+      box-shadow: 0 6px 20px rgba(17, 153, 142, 0.4);
+      transform: translateY(-2px);
+    }
+    
+    .btn-copy { 
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+    }
+    
+    .btn-copy:hover {
+      box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+      transform: translateY(-2px);
+    }
+    
+    .btn-danger { 
+      background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+      color: white;
+    }
+    
+    .btn-danger:hover {
+      box-shadow: 0 6px 20px rgba(250, 112, 154, 0.4);
+      transform: translateY(-2px);
+    }
+    
     textarea {
       width: 100%;
-      min-height: 120px;
-      padding: 10px;
-      margin: 10px 0;
-      border: 2px solid #ddd;
-      border-radius: 8px;
-      font-family: monospace;
-      font-size: 11px;
+      min-height: 130px;
+      padding: 15px;
+      margin: 12px 0;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
       resize: vertical;
+      background: #f7fafc;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
     }
+    
+    textarea:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      background: white;
+    }
+    
     video {
       width: 100%;
-      border-radius: 8px;
-      background: black;
-      margin: 10px 0;
+      border-radius: 15px;
+      background: #000;
+      margin: 15px 0;
       min-height: 200px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
     }
-    .panel { display: none; }
-    .panel.active { display: block; }
+    
+    .panel { 
+      display: none;
+      animation: fadeIn 0.5s ease;
+    }
+    
+    .panel.active { 
+      display: block;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
     .status { 
-      padding: 15px; 
-      margin: 10px 0; 
-      border-radius: 8px; 
-      background: #e3f2fd; 
-      color: #1976d2;
+      padding: 16px;
+      margin: 15px 0;
+      border-radius: 12px;
       text-align: center;
       font-weight: 600;
+      font-size: 15px;
+      animation: slideIn 0.3s ease;
     }
-    .status.success { background: #d4edda; color: #155724; }
-    .status.error { background: #f8d7da; color: #721c24; }
+    
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    
+    .status.success { 
+      background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+      color: #155724;
+      border: 2px solid #b1dfbb;
+    }
+    
+    .status.error { 
+      background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+      color: #721c24;
+      border: 2px solid #f1b0b7;
+    }
+    
+    .home-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    
+    .icon {
+      margin-right: 8px;
+      font-size: 20px;
+    }
+    
+    @media (max-width: 480px) {
+      .header h1 { font-size: 26px; }
+      .content { padding: 20px; }
+      button { padding: 14px; font-size: 15px; }
+    }
   </style>
 </head>
 <body>
-  <h1>📹 Baby Monitor</h1>
-
-  <!-- Home Screen -->
-  <div id="home" class="panel active">
-    <button class="btn-primary" onclick="showCamera()">📷 Use as Camera</button>
-    <button class="btn-secondary" onclick="showMonitor()">📺 Use as Monitor</button>
-  </div>
-
-  <!-- Camera Panel -->
-  <div id="camera" class="panel">
-    <div class="step">
-      <span class="step-number">1</span>
-      <strong>Start your camera</strong>
+  <div class="container">
+    <div class="header">
+      <h1>📹 Baby Monitor</h1>
+      <p>Secure peer-to-peer video streaming</p>
     </div>
-    <button class="btn-primary" onclick="startCamera()">Start Camera</button>
-    
-    <div id="cameraStep2" style="display:none;">
-      <div class="step">
-        <span class="step-number">2</span>
-        <strong>Copy this text and send to Monitor device</strong>
+
+    <div class="content">
+      <!-- Home Screen -->
+      <div id="home" class="panel active">
+        <div class="home-buttons">
+          <button class="btn-primary" onclick="showCamera()">
+            <span class="icon">📷</span>Use as Camera
+          </button>
+          <button class="btn-secondary" onclick="showMonitor()">
+            <span class="icon">📺</span>Use as Monitor
+          </button>
+        </div>
       </div>
-      <textarea id="offerText" readonly onclick="this.select()"></textarea>
-      <button class="btn-copy" onclick="copyOffer()">📋 Copy Offer</button>
-      
-      <div class="step">
-        <span class="step-number">3</span>
-        <strong>Paste the answer you receive from Monitor</strong>
+
+      <!-- Camera Panel -->
+      <div id="camera" class="panel">
+        <div class="step">
+          <div class="step-header">
+            <div class="step-number">1</div>
+            <div class="step-title">Start your camera</div>
+          </div>
+        </div>
+        <button class="btn-primary" onclick="startCamera()">
+          <span class="icon">▶</span>Start Camera
+        </button>
+        
+        <div id="cameraStep2" style="display:none;">
+          <div class="step">
+            <div class="step-header">
+              <div class="step-number">2</div>
+              <div class="step-title">Copy & send to Monitor</div>
+            </div>
+            <textarea id="offerText" readonly onclick="this.select()"></textarea>
+            <button class="btn-copy" onclick="copyOffer()">
+              <span class="icon">📋</span>Copy Offer
+            </button>
+          </div>
+          
+          <div class="step">
+            <div class="step-header">
+              <div class="step-number">3</div>
+              <div class="step-title">Paste answer from Monitor</div>
+            </div>
+            <textarea id="answerInput" placeholder="Paste answer here..."></textarea>
+            <button class="btn-secondary" onclick="connectCamera()">
+              <span class="icon">✓</span>Connect
+            </button>
+          </div>
+        </div>
+
+        <div id="cameraStatus" class="status" style="display:none;"></div>
+        <video id="cameraVideo" autoplay muted playsinline></video>
+        
+        <button class="btn-danger" onclick="goHome()">
+          <span class="icon">←</span>Back to Home
+        </button>
       </div>
-      <textarea id="answerInput" placeholder="Paste answer here..."></textarea>
-      <button class="btn-secondary" onclick="connectCamera()">✓ Connect</button>
-    </div>
 
-    <div id="cameraStatus" class="status" style="display:none;"></div>
-    <video id="cameraVideo" autoplay muted playsinline></video>
-    
-    <button class="btn-danger" onclick="goHome()">← Back</button>
-  </div>
+      <!-- Monitor Panel -->
+      <div id="monitor" class="panel">
+        <div class="step">
+          <div class="step-header">
+            <div class="step-number">1</div>
+            <div class="step-title">Paste offer from Camera</div>
+          </div>
+          <textarea id="offerInput" placeholder="Paste offer here..."></textarea>
+          <button class="btn-primary" onclick="createAnswer()">
+            <span class="icon">🔗</span>Create Answer
+          </button>
+        </div>
 
-  <!-- Monitor Panel -->
-  <div id="monitor" class="panel">
-    <div class="step">
-      <span class="step-number">1</span>
-      <strong>Paste the offer from Camera device</strong>
-    </div>
-    <textarea id="offerInput" placeholder="Paste offer here..."></textarea>
-    <button class="btn-primary" onclick="createAnswer()">Create Answer</button>
+        <div id="monitorStep2" style="display:none;">
+          <div class="step">
+            <div class="step-header">
+              <div class="step-number">2</div>
+              <div class="step-title">Copy & send to Camera</div>
+            </div>
+            <textarea id="answerText" readonly onclick="this.select()"></textarea>
+            <button class="btn-copy" onclick="copyAnswer()">
+              <span class="icon">📋</span>Copy Answer
+            </button>
+          </div>
+        </div>
 
-    <div id="monitorStep2" style="display:none;">
-      <div class="step">
-        <span class="step-number">2</span>
-        <strong>Copy this text and send back to Camera</strong>
+        <div id="monitorStatus" class="status" style="display:none;"></div>
+        <video id="monitorVideo" autoplay playsinline></video>
+        
+        <button class="btn-danger" onclick="goHome()">
+          <span class="icon">←</span>Back to Home
+        </button>
       </div>
-      <textarea id="answerText" readonly onclick="this.select()"></textarea>
-      <button class="btn-copy" onclick="copyAnswer()">📋 Copy Answer</button>
     </div>
-
-    <div id="monitorStatus" class="status" style="display:none;"></div>
-    <video id="monitorVideo" autoplay playsinline></video>
-    
-    <button class="btn-danger" onclick="goHome()">← Back</button>
   </div>
 
   <script>
