@@ -376,20 +376,20 @@
               <span class="icon">📋</span>Copy Answer
             </button>
           </div>
+
+          <div class="audio-controls">
+            <h3>🎤 Talk to Baby</h3>
+            <button id="talkBtn" class="btn-talk" onmousedown="startTalking()" onmouseup="stopTalking()" ontouchstart="startTalking()" ontouchend="stopTalking()">
+              <span class="icon">🎤</span>Hold to Talk
+            </button>
+            <p style="text-align:center; color:#2d3748; font-size:14px; margin-top:10px;">
+              Press and hold to send audio to camera
+            </p>
+          </div>
         </div>
 
         <div id="monitorStatus" class="status" style="display:none;"></div>
         <video id="monitorVideo" autoplay playsinline></video>
-
-        <div id="audioControls" class="audio-controls" style="display:none;">
-          <h3>🎤 Talk to Baby</h3>
-          <button id="talkBtn" class="btn-talk" onmousedown="startTalking()" onmouseup="stopTalking()" ontouchstart="startTalking()" ontouchend="stopTalking()">
-            <span class="icon">🎤</span>Hold to Talk
-          </button>
-          <p style="text-align:center; color:#2d3748; font-size:14px; margin-top:10px;">
-            Press and hold to send audio to camera
-          </p>
-        </div>
         
         <button class="btn-danger" onclick="goHome()">
           <span class="icon">←</span>Back to Home
@@ -408,8 +408,8 @@
 
     let pc = null;
     let localStream = null;
-    let monitorAudioStream = null;
-    let audioSender = null;
+    let monitorMicStream = null;
+    let isTalking = false;
 
     function showPanel(panelId) {
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -417,11 +417,23 @@
     }
 
     function showCamera() { showPanel('camera'); }
-    function showMonitor() { showPanel('monitor'); }
+    
+    async function showMonitor() { 
+      showPanel('monitor');
+      // Request mic permission upfront
+      try {
+        monitorMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Mute it initially (will unmute when talking)
+        monitorMicStream.getAudioTracks()[0].enabled = false;
+      } catch (err) {
+        console.log('Mic permission denied:', err);
+      }
+    }
+    
     function goHome() { 
       if (pc) pc.close();
       if (localStream) localStream.getTracks().forEach(t => t.stop());
-      if (monitorAudioStream) monitorAudioStream.getTracks().forEach(t => t.stop());
+      if (monitorMicStream) monitorMicStream.getTracks().forEach(t => t.stop());
       location.reload();
     }
 
@@ -467,9 +479,22 @@
         
         pc = new RTCPeerConnection(config);
         
+        // Add camera audio/video tracks
         localStream.getTracks().forEach(track => {
           pc.addTrack(track, localStream);
         });
+
+        // Listen for incoming audio from monitor
+        pc.ontrack = e => {
+          const audioElement = document.getElementById('cameraVideo');
+          if (e.track.kind === 'audio') {
+            // Play monitor audio on camera device
+            const remoteStream = new MediaStream([e.track]);
+            const audio = new Audio();
+            audio.srcObject = remoteStream;
+            audio.play();
+          }
+        };
 
         const iceCandidates = [];
         pc.onicecandidate = e => {
@@ -513,7 +538,7 @@
           }
         }
 
-        showStatus('cameraStatus', '✅ Connected! Monitor should see video with audio.', 'success');
+        showStatus('cameraStatus', '✅ Connected! Monitor can see/hear you.', 'success');
       } catch (err) {
         showStatus('cameraStatus', '❌ Error: ' + err.message, 'error');
       }
@@ -532,11 +557,20 @@
         const offer = JSON.parse(input);
         pc = new RTCPeerConnection(config);
 
+        // Receive camera video/audio
         pc.ontrack = e => {
-          document.getElementById('monitorVideo').srcObject = e.streams[0];
-          showStatus('monitorStatus', '✅ Receiving video with audio!', 'success');
-          document.getElementById('audioControls').style.display = 'block';
+          if (e.track.kind === 'video') {
+            document.getElementById('monitorVideo').srcObject = e.streams[0];
+            showStatus('monitorStatus', '✅ Receiving video with audio!', 'success');
+          }
         };
+
+        // Add monitor's mic track (muted initially)
+        if (monitorMicStream) {
+          monitorMicStream.getTracks().forEach(track => {
+            pc.addTrack(track, monitorMicStream);
+          });
+        }
 
         const iceCandidates = [];
         pc.onicecandidate = e => {
@@ -571,42 +605,31 @@
       }
     }
 
-    async function startTalking() {
-      try {
-        const btn = document.getElementById('talkBtn');
-        btn.classList.add('active');
-        btn.innerHTML = '<span class="icon">🔴</span>Talking...';
-
-        monitorAudioStream = await navigator.mediaDevices.getUserMedia({ 
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          }
-        });
-
-        const audioTrack = monitorAudioStream.getAudioTracks()[0];
-        audioSender = pc.addTrack(audioTrack, monitorAudioStream);
-
-      } catch (err) {
-        alert('Microphone access denied: ' + err.message);
+    function startTalking() {
+      if (!monitorMicStream) {
+        alert('Microphone not available');
+        return;
       }
+
+      const btn = document.getElementById('talkBtn');
+      btn.classList.add('active');
+      btn.innerHTML = '<span class="icon">🔴</span>Talking...';
+
+      // Unmute the mic
+      monitorMicStream.getAudioTracks()[0].enabled = true;
+      isTalking = true;
     }
 
     function stopTalking() {
+      if (!monitorMicStream) return;
+
       const btn = document.getElementById('talkBtn');
       btn.classList.remove('active');
       btn.innerHTML = '<span class="icon">🎤</span>Hold to Talk';
 
-      if (audioSender) {
-        pc.removeTrack(audioSender);
-        audioSender = null;
-      }
-
-      if (monitorAudioStream) {
-        monitorAudioStream.getTracks().forEach(t => t.stop());
-        monitorAudioStream = null;
-      }
+      // Mute the mic
+      monitorMicStream.getAudioTracks()[0].enabled = false;
+      isTalking = false;
     }
   </script>
 </body>
