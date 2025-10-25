@@ -79,30 +79,6 @@
     }
     .status.success { background: #d4edda; color: #155724; }
     .status.error { background: #f8d7da; color: #721c24; }
-    .qr-container {
-      display: flex;
-      justify-content: center;
-      margin: 20px 0;
-      padding: 20px;
-      background: white;
-      border-radius: 12px;
-      overflow: auto;
-    }
-    canvas {
-      max-width: 100%;
-      height: auto;
-    }
-    details {
-      margin: 10px 0;
-      padding: 10px;
-      background: #f9f9f9;
-      border-radius: 8px;
-    }
-    summary {
-      cursor: pointer;
-      font-weight: 600;
-      color: #666;
-    }
   </style>
 </head>
 <body>
@@ -125,30 +101,17 @@
     <div id="cameraStep2" style="display:none;">
       <div class="step">
         <span class="step-number">2</span>
-        <strong>Scan this QR code on Monitor</strong>
+        <strong>Copy this text and send to Monitor device</strong>
       </div>
-      <div class="qr-container">
-        <canvas id="qrCanvas"></canvas>
-      </div>
-      
-      <details>
-        <summary>Or copy text manually</summary>
-        <textarea id="offerText" readonly onclick="this.select()"></textarea>
-        <button class="btn-copy" onclick="copyOffer()">📋 Copy Text</button>
-      </details>
+      <textarea id="offerText" readonly onclick="this.select()"></textarea>
+      <button class="btn-copy" onclick="copyOffer()">📋 Copy Offer</button>
       
       <div class="step">
         <span class="step-number">3</span>
-        <strong>Scan QR from Monitor or paste text</strong>
+        <strong>Paste the answer you receive from Monitor</strong>
       </div>
-      <button class="btn-secondary" onclick="scanAnswerQR()">📷 Scan QR Code</button>
-      <canvas id="qrScannerCanvas" style="display:none; width:100%; margin:10px 0;"></canvas>
-      
-      <details>
-        <summary>Or paste text manually</summary>
-        <textarea id="answerInput" placeholder="Paste answer here..."></textarea>
-        <button class="btn-secondary" onclick="connectCamera()">✓ Connect</button>
-      </details>
+      <textarea id="answerInput" placeholder="Paste answer here..."></textarea>
+      <button class="btn-secondary" onclick="connectCamera()">✓ Connect</button>
     </div>
 
     <div id="cameraStatus" class="status" style="display:none;"></div>
@@ -161,31 +124,18 @@
   <div id="monitor" class="panel">
     <div class="step">
       <span class="step-number">1</span>
-      <strong>Scan QR from Camera or paste text</strong>
+      <strong>Paste the offer from Camera device</strong>
     </div>
-    <button class="btn-primary" onclick="scanOfferQR()">📷 Scan QR Code</button>
-    <canvas id="qrScannerCanvasMonitor" style="display:none; width:100%; margin:10px 0;"></canvas>
-    
-    <details>
-      <summary>Or paste text manually</summary>
-      <textarea id="offerInput" placeholder="Paste offer here..."></textarea>
-      <button class="btn-primary" onclick="createAnswer()">Create Answer</button>
-    </details>
+    <textarea id="offerInput" placeholder="Paste offer here..."></textarea>
+    <button class="btn-primary" onclick="createAnswer()">Create Answer</button>
 
     <div id="monitorStep2" style="display:none;">
       <div class="step">
         <span class="step-number">2</span>
-        <strong>Scan this QR code on Camera</strong>
+        <strong>Copy this text and send back to Camera</strong>
       </div>
-      <div class="qr-container">
-        <canvas id="qrCanvasAnswer"></canvas>
-      </div>
-      
-      <details>
-        <summary>Or copy text manually</summary>
-        <textarea id="answerText" readonly onclick="this.select()"></textarea>
-        <button class="btn-copy" onclick="copyAnswer()">📋 Copy Text</button>
-      </details>
+      <textarea id="answerText" readonly onclick="this.select()"></textarea>
+      <button class="btn-copy" onclick="copyAnswer()">📋 Copy Answer</button>
     </div>
 
     <div id="monitorStatus" class="status" style="display:none;"></div>
@@ -193,10 +143,6 @@
     
     <button class="btn-danger" onclick="goHome()">← Back</button>
   </div>
-
-  <!-- Load QR code library -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 
   <script>
     const config = {
@@ -208,7 +154,6 @@
 
     let pc = null;
     let localStream = null;
-    let scannerStream = null;
 
     function showPanel(panelId) {
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -220,7 +165,6 @@
     function goHome() { 
       if (pc) pc.close();
       if (localStream) localStream.getTracks().forEach(t => t.stop());
-      if (scannerStream) scannerStream.getTracks().forEach(t => t.stop());
       location.reload();
     }
 
@@ -235,67 +179,14 @@
       const text = document.getElementById('offerText');
       text.select();
       document.execCommand('copy');
-      showStatus('cameraStatus', '✅ Text copied!', 'success');
+      showStatus('cameraStatus', '✅ Copied! Send this to Monitor device.', 'success');
     }
 
     function copyAnswer() {
       const text = document.getElementById('answerText');
       text.select();
       document.execCommand('copy');
-      showStatus('monitorStatus', '✅ Text copied!', 'success');
-    }
-
-    async function generateQR(canvasId, data) {
-      try {
-        const canvas = document.getElementById(canvasId);
-        await QRCode.toCanvas(canvas, data, {
-          width: 400,
-          margin: 2,
-          errorCorrectionLevel: 'L' // Low error correction = more data capacity
-        });
-      } catch (err) {
-        console.error('QR generation error:', err);
-      }
-    }
-
-    async function scanQRFromCamera(canvasId, onSuccess) {
-      try {
-        const canvas = document.getElementById(canvasId);
-        canvas.style.display = 'block';
-        const ctx = canvas.getContext('2d');
-        
-        scannerStream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'environment' } 
-        });
-        
-        const video = document.createElement('video');
-        video.srcObject = scannerStream;
-        video.play();
-        
-        video.onloadedmetadata = () => {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          
-          const scan = () => {
-            if (canvas.style.display === 'none') return;
-            
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const code = jsQR(imageData.data, imageData.width, imageData.height);
-            
-            if (code) {
-              scannerStream.getTracks().forEach(t => t.stop());
-              canvas.style.display = 'none';
-              onSuccess(code.data);
-            } else {
-              requestAnimationFrame(scan);
-            }
-          };
-          scan();
-        };
-      } catch (err) {
-        alert('Camera access denied: ' + err.message);
-      }
+      showStatus('monitorStatus', '✅ Copied! Send this back to Camera.', 'success');
     }
 
     async function startCamera() {
@@ -316,6 +207,7 @@
         });
         
         document.getElementById('cameraVideo').srcObject = localStream;
+        
         pc = new RTCPeerConnection(config);
         
         localStream.getTracks().forEach(track => {
@@ -327,19 +219,15 @@
           if (e.candidate) iceCandidates.push(e.candidate);
         };
 
-        pc.onicegatheringstatechange = async () => {
+        pc.onicegatheringstatechange = () => {
           if (pc.iceGatheringState === 'complete') {
             const offer = {
               sdp: pc.localDescription,
               candidates: iceCandidates
             };
-            const offerJSON = JSON.stringify(offer);
-            document.getElementById('offerText').value = offerJSON;
-            
-            await generateQR('qrCanvas', offerJSON);
-            
+            document.getElementById('offerText').value = JSON.stringify(offer);
             document.getElementById('cameraStep2').style.display = 'block';
-            showStatus('cameraStatus', '✅ QR code ready! Scan on Monitor.', 'success');
+            showStatus('cameraStatus', '✅ Camera ready! Follow steps above.', 'success');
           }
         };
 
@@ -351,19 +239,11 @@
       }
     }
 
-    function scanAnswerQR() {
-      showStatus('cameraStatus', '📷 Point camera at QR code...', '');
-      scanQRFromCamera('qrScannerCanvas', async (data) => {
-        document.getElementById('answerInput').value = data;
-        await connectCamera();
-      });
-    }
-
     async function connectCamera() {
       try {
         const input = document.getElementById('answerInput').value.trim();
         if (!input) {
-          showStatus('cameraStatus', '⚠️ Paste answer first!', 'error');
+          showStatus('cameraStatus', '⚠️ Please paste the answer first!', 'error');
           return;
         }
 
@@ -376,36 +256,28 @@
           }
         }
 
-        showStatus('cameraStatus', '✅ Connected!', 'success');
+        showStatus('cameraStatus', '✅ Connected! Monitor should see video with audio.', 'success');
       } catch (err) {
         showStatus('cameraStatus', '❌ Error: ' + err.message, 'error');
       }
-    }
-
-    function scanOfferQR() {
-      showStatus('monitorStatus', '📷 Point camera at QR code...', '');
-      scanQRFromCamera('qrScannerCanvasMonitor', async (data) => {
-        document.getElementById('offerInput').value = data;
-        await createAnswer();
-      });
     }
 
     async function createAnswer() {
       try {
         const input = document.getElementById('offerInput').value.trim();
         if (!input) {
-          showStatus('monitorStatus', '⚠️ Paste offer first!', 'error');
+          showStatus('monitorStatus', '⚠️ Please paste the offer first!', 'error');
           return;
         }
 
-        showStatus('monitorStatus', '📡 Connecting...');
+        showStatus('monitorStatus', '📡 Creating connection...');
 
         const offer = JSON.parse(input);
         pc = new RTCPeerConnection(config);
 
         pc.ontrack = e => {
           document.getElementById('monitorVideo').srcObject = e.streams[0];
-          showStatus('monitorStatus', '✅ Receiving video!', 'success');
+          showStatus('monitorStatus', '✅ Receiving video with audio!', 'success');
         };
 
         const iceCandidates = [];
@@ -413,19 +285,15 @@
           if (e.candidate) iceCandidates.push(e.candidate);
         };
 
-        pc.onicegatheringstatechange = async () => {
+        pc.onicegatheringstatechange = () => {
           if (pc.iceGatheringState === 'complete') {
             const answer = {
               sdp: pc.localDescription,
               candidates: iceCandidates
             };
-            const answerJSON = JSON.stringify(answer);
-            document.getElementById('answerText').value = answerJSON;
-            
-            await generateQR('qrCanvasAnswer', answerJSON);
-            
+            document.getElementById('answerText').value = JSON.stringify(answer);
             document.getElementById('monitorStep2').style.display = 'block';
-            showStatus('monitorStatus', '✅ QR code ready! Scan on Camera.', 'success');
+            showStatus('monitorStatus', '✅ Answer ready! Copy and send to Camera.', 'success');
           }
         };
 
