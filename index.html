@@ -565,7 +565,9 @@
         pc.ondatachannel = e => {
           dataChannel = e.channel;
           dataChannel.onopen = () => {
-            console.log('DataChannel opened on camera');
+            console.log('DataChannel opened on camera - sending ready signal');
+            // Send ready signal immediately when DataChannel opens
+            dataChannel.send(JSON.stringify({ action: 'ready' }));
           };
           dataChannel.onmessage = handleSoundCommand;
         };
@@ -607,8 +609,6 @@
         playSoundOnCamera(command.sound);
       } else if (command.action === 'stop') {
         stopSoundOnCamera();
-      } else if (command.action === 'ready') {
-        // Ignore ready messages on camera side
       }
     }
 
@@ -729,13 +729,6 @@
 
         showStatus('cameraStatus', '✅ Connected! Ready to receive sounds.', 'success');
         
-        // Send ready signal to monitor after connection
-        setTimeout(() => {
-          if (dataChannel && dataChannel.readyState === 'open') {
-            dataChannel.send(JSON.stringify({ action: 'ready' }));
-          }
-        }, 1000);
-        
       } catch (err) {
         showStatus('cameraStatus', '❌ Error: ' + err.message, 'error');
       }
@@ -773,6 +766,7 @@
 
         dataChannel.onmessage = e => {
           const command = JSON.parse(e.data);
+          console.log('Monitor received message:', command);
           if (command.action === 'ready') {
             enableSoundButtons();
             showStatus('monitorStatus', '🎵 Connection complete! Sounds ready.', 'success');
