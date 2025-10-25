@@ -427,16 +427,16 @@
               <span class="icon">📋</span>Copy Answer
             </button>
           </div>
+        </div>
 
-          <div class="sound-controls" id="soundControls" style="display:none;">
-            <h3>🎵 Soothing Sounds</h3>
-            <div class="sound-grid">
-              <button class="sound-btn" onclick="playSound('lullaby1')">🎼 Twinkle Twinkle</button>
-              <button class="sound-btn" onclick="playSound('lullaby2')">🌙 Brahms Lullaby</button>
-              <button class="sound-btn" onclick="playSound('whitenoise')">🌊 White Noise</button>
-              <button class="sound-btn" onclick="playSound('rain')">🌧️ Rain Sounds</button>
-              <button class="sound-btn stop-btn" onclick="stopSound()">⏹️ Stop Sound</button>
-            </div>
+        <div class="sound-controls" id="soundControls" style="display:none;">
+          <h3>🎵 Soothing Sounds</h3>
+          <div class="sound-grid">
+            <button class="sound-btn" onclick="playSound('lullaby1')">🎼 Twinkle Twinkle</button>
+            <button class="sound-btn" onclick="playSound('lullaby2')">🌙 Brahms Lullaby</button>
+            <button class="sound-btn" onclick="playSound('whitenoise')">🌊 White Noise</button>
+            <button class="sound-btn" onclick="playSound('rain')">🌧️ Rain Sounds</button>
+            <button class="sound-btn stop-btn" onclick="stopSound()">⏹️ Stop Sound</button>
           </div>
         </div>
 
@@ -541,7 +541,6 @@
           pc.addTrack(track, localStream);
         });
 
-        // Set up data channel listener
         pc.ondatachannel = e => {
           dataChannel = e.channel;
           dataChannel.onopen = () => {
@@ -735,12 +734,13 @@
         const offer = JSON.parse(input);
         pc = new RTCPeerConnection(config);
 
-        // Create data channel BEFORE creating answer
         dataChannel = pc.createDataChannel('sounds');
         
         dataChannel.onopen = () => {
           console.log('DataChannel opened on monitor');
+          // Show sound controls when DataChannel opens
           document.getElementById('soundControls').style.display = 'block';
+          showStatus('monitorStatus', '🎵 Sounds ready! You can play lullabies now.', 'success');
         };
 
         pc.addTrack(monitorMicTrack, monitorMicStream);
@@ -749,7 +749,6 @@
           if (e.track.kind === 'video') {
             document.getElementById('monitorVideo').srcObject = e.streams[0];
             document.getElementById('micBtn').style.display = 'flex';
-            showStatus('monitorStatus', '✅ Receiving video with audio!', 'success');
           }
         };
 
@@ -788,7 +787,7 @@
 
     function playSound(soundType) {
       if (!dataChannel || dataChannel.readyState !== 'open') {
-        showStatus('monitorStatus', '⚠️ DataChannel not ready. Make sure Camera connected the answer!', 'error');
+        showStatus('monitorStatus', '⚠️ Connection not ready yet. Camera needs to paste your answer first!', 'error');
         return;
       }
 
@@ -824,10 +823,6 @@
       btn.textContent = '🔴';
 
       monitorMicTrack.enabled = true;
-      
-      if (cameraAudioTrack) {
-        cameraAudioTrack.enabled = false;
-      }
     }
 
     function stopTalking() {
@@ -838,10 +833,6 @@
       btn.textContent = '🎤';
 
       monitorMicTrack.enabled = false;
-      
-      if (cameraAudioTrack) {
-        cameraAudioTrack.enabled = true;
-      }
     }
   </script>
 </body>
