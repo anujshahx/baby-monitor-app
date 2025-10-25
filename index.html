@@ -162,6 +162,28 @@
       box-shadow: 0 6px 20px rgba(250, 112, 154, 0.4);
       transform: translateY(-2px);
     }
+
+    .btn-talk {
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+      color: white;
+      font-size: 18px;
+      padding: 20px;
+    }
+
+    .btn-talk:hover {
+      box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .btn-talk.active {
+      background: linear-gradient(135deg, #ee5a6f 0%, #c92a2a 100%);
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7); }
+      50% { box-shadow: 0 0 0 10px rgba(255, 107, 107, 0); }
+    }
     
     textarea {
       width: 100%;
@@ -243,6 +265,20 @@
     .icon {
       margin-right: 8px;
       font-size: 20px;
+    }
+
+    .audio-controls {
+      margin: 20px 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+      border-radius: 15px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .audio-controls h3 {
+      color: #2d3748;
+      margin-bottom: 10px;
+      text-align: center;
     }
     
     @media (max-width: 480px) {
@@ -344,6 +380,16 @@
 
         <div id="monitorStatus" class="status" style="display:none;"></div>
         <video id="monitorVideo" autoplay playsinline></video>
+
+        <div id="audioControls" class="audio-controls" style="display:none;">
+          <h3>🎤 Talk to Baby</h3>
+          <button id="talkBtn" class="btn-talk" onmousedown="startTalking()" onmouseup="stopTalking()" ontouchstart="startTalking()" ontouchend="stopTalking()">
+            <span class="icon">🎤</span>Hold to Talk
+          </button>
+          <p style="text-align:center; color:#2d3748; font-size:14px; margin-top:10px;">
+            Press and hold to send audio to camera
+          </p>
+        </div>
         
         <button class="btn-danger" onclick="goHome()">
           <span class="icon">←</span>Back to Home
@@ -362,6 +408,8 @@
 
     let pc = null;
     let localStream = null;
+    let monitorAudioStream = null;
+    let audioSender = null;
 
     function showPanel(panelId) {
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -373,6 +421,7 @@
     function goHome() { 
       if (pc) pc.close();
       if (localStream) localStream.getTracks().forEach(t => t.stop());
+      if (monitorAudioStream) monitorAudioStream.getTracks().forEach(t => t.stop());
       location.reload();
     }
 
@@ -486,6 +535,7 @@
         pc.ontrack = e => {
           document.getElementById('monitorVideo').srcObject = e.streams[0];
           showStatus('monitorStatus', '✅ Receiving video with audio!', 'success');
+          document.getElementById('audioControls').style.display = 'block';
         };
 
         const iceCandidates = [];
@@ -518,6 +568,44 @@
 
       } catch (err) {
         showStatus('monitorStatus', '❌ Error: ' + err.message, 'error');
+      }
+    }
+
+    async function startTalking() {
+      try {
+        const btn = document.getElementById('talkBtn');
+        btn.classList.add('active');
+        btn.innerHTML = '<span class="icon">🔴</span>Talking...';
+
+        monitorAudioStream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        });
+
+        const audioTrack = monitorAudioStream.getAudioTracks()[0];
+        audioSender = pc.addTrack(audioTrack, monitorAudioStream);
+
+      } catch (err) {
+        alert('Microphone access denied: ' + err.message);
+      }
+    }
+
+    function stopTalking() {
+      const btn = document.getElementById('talkBtn');
+      btn.classList.remove('active');
+      btn.innerHTML = '<span class="icon">🎤</span>Hold to Talk';
+
+      if (audioSender) {
+        pc.removeTrack(audioSender);
+        audioSender = null;
+      }
+
+      if (monitorAudioStream) {
+        monitorAudioStream.getTracks().forEach(t => t.stop());
+        monitorAudioStream = null;
       }
     }
   </script>
