@@ -564,12 +564,26 @@
 
         pc.ondatachannel = e => {
           dataChannel = e.channel;
+          console.log('[CAMERA] DataChannel received');
+          
           dataChannel.onopen = () => {
-            console.log('DataChannel opened on camera - sending ready signal');
-            // Send ready signal immediately when DataChannel opens
-            dataChannel.send(JSON.stringify({ action: 'ready' }));
+            console.log('[CAMERA] DataChannel opened');
           };
-          dataChannel.onmessage = handleSoundCommand;
+          
+          dataChannel.onmessage = event => {
+            const command = JSON.parse(event.data);
+            console.log('[CAMERA] Received:', command);
+            
+            if (command.action === 'ping') {
+              // Monitor is asking if we're ready - respond yes!
+              console.log('[CAMERA] Received ping, sending ready');
+              dataChannel.send(JSON.stringify({ action: 'ready' }));
+            } else if (command.action === 'play') {
+              playSoundOnCamera(command.sound);
+            } else if (command.action === 'stop') {
+              stopSoundOnCamera();
+            }
+          };
         };
 
         pc.ontrack = e => {
@@ -599,16 +613,6 @@
         
       } catch (err) {
         showStatus('cameraStatus', '❌ Error: ' + err.message, 'error');
-      }
-    }
-
-    function handleSoundCommand(event) {
-      const command = JSON.parse(event.data);
-      
-      if (command.action === 'play') {
-        playSoundOnCamera(command.sound);
-      } else if (command.action === 'stop') {
-        stopSoundOnCamera();
       }
     }
 
@@ -759,15 +763,20 @@
         pc = new RTCPeerConnection(config);
 
         dataChannel = pc.createDataChannel('sounds');
+        console.log('[MONITOR] DataChannel created');
         
         dataChannel.onopen = () => {
-          console.log('DataChannel opened on monitor');
+          console.log('[MONITOR] DataChannel opened - sending ping');
+          // Send ping to camera to check if it's ready
+          dataChannel.send(JSON.stringify({ action: 'ping' }));
         };
 
         dataChannel.onmessage = e => {
           const command = JSON.parse(e.data);
-          console.log('Monitor received message:', command);
+          console.log('[MONITOR] Received:', command);
+          
           if (command.action === 'ready') {
+            console.log('[MONITOR] Camera is ready! Enabling buttons');
             enableSoundButtons();
             showStatus('monitorStatus', '🎵 Connection complete! Sounds ready.', 'success');
           }
