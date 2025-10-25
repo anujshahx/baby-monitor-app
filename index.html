@@ -425,7 +425,7 @@
             <button class="sound-btn stop-btn" onclick="stopSound()" disabled>⏹️ Stop Sound</button>
           </div>
           <p style="text-align:center; color:#2d3748; font-size:12px; margin-top:10px; opacity:0.7;" id="soundHint">
-            Complete connection to enable sounds
+            Waiting for Camera to connect...
           </p>
         </div>
 
@@ -607,6 +607,8 @@
         playSoundOnCamera(command.sound);
       } else if (command.action === 'stop') {
         stopSoundOnCamera();
+      } else if (command.action === 'ready') {
+        // Ignore ready messages on camera side
       }
     }
 
@@ -726,6 +728,14 @@
         }
 
         showStatus('cameraStatus', '✅ Connected! Ready to receive sounds.', 'success');
+        
+        // Send ready signal to monitor after connection
+        setTimeout(() => {
+          if (dataChannel && dataChannel.readyState === 'open') {
+            dataChannel.send(JSON.stringify({ action: 'ready' }));
+          }
+        }, 1000);
+        
       } catch (err) {
         showStatus('cameraStatus', '❌ Error: ' + err.message, 'error');
       }
@@ -759,8 +769,14 @@
         
         dataChannel.onopen = () => {
           console.log('DataChannel opened on monitor');
-          enableSoundButtons();
-          showStatus('monitorStatus', '🎵 Sounds ready! You can play lullabies now.', 'success');
+        };
+
+        dataChannel.onmessage = e => {
+          const command = JSON.parse(e.data);
+          if (command.action === 'ready') {
+            enableSoundButtons();
+            showStatus('monitorStatus', '🎵 Connection complete! Sounds ready.', 'success');
+          }
         };
 
         pc.addTrack(monitorMicTrack, monitorMicStream);
@@ -807,7 +823,7 @@
 
     function playSound(soundType) {
       if (!dataChannel || dataChannel.readyState !== 'open') {
-        showStatus('monitorStatus', '⚠️ Connection not ready. Camera needs to paste your answer first!', 'error');
+        showStatus('monitorStatus', '⚠️ Connection not ready yet!', 'error');
         return;
       }
 
