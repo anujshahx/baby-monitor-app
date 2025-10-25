@@ -48,16 +48,6 @@
     .btn-secondary { background: #34c759; color: white; }
     .btn-copy { background: #ff9500; color: white; }
     .btn-danger { background: #ff3b30; color: white; }
-    input {
-      width: 100%;
-      padding: 15px;
-      margin: 10px 0;
-      border: 2px solid #ddd;
-      border-radius: 8px;
-      font-size: 14px;
-      text-align: center;
-      font-family: monospace;
-    }
     textarea {
       width: 100%;
       min-height: 120px;
@@ -89,17 +79,18 @@
     }
     .status.success { background: #d4edda; color: #155724; }
     .status.error { background: #f8d7da; color: #721c24; }
-    .code-display {
-      font-size: 20px;
-      font-weight: bold;
-      text-align: center;
-      color: #007aff;
+    .qr-container {
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
       padding: 20px;
       background: white;
       border-radius: 12px;
-      margin: 20px 0;
-      word-break: break-all;
-      font-family: monospace;
+      overflow: auto;
+    }
+    canvas {
+      max-width: 100%;
+      height: auto;
     }
     details {
       margin: 10px 0;
@@ -134,26 +125,27 @@
     <div id="cameraStep2" style="display:none;">
       <div class="step">
         <span class="step-number">2</span>
-        <strong>Share this code with Monitor device</strong>
+        <strong>Scan this QR code on Monitor</strong>
       </div>
-      <div class="code-display" id="shareCode">Generating...</div>
-      <button class="btn-copy" onclick="copyCode()">📋 Copy Code</button>
+      <div class="qr-container">
+        <canvas id="qrCanvas"></canvas>
+      </div>
       
       <details>
-        <summary>Or copy full text manually</summary>
+        <summary>Or copy text manually</summary>
         <textarea id="offerText" readonly onclick="this.select()"></textarea>
         <button class="btn-copy" onclick="copyOffer()">📋 Copy Text</button>
       </details>
       
       <div class="step">
         <span class="step-number">3</span>
-        <strong>Enter code from Monitor</strong>
+        <strong>Scan QR from Monitor or paste text</strong>
       </div>
-      <input id="answerCode" type="text" placeholder="Paste code from Monitor">
-      <button class="btn-secondary" onclick="fetchAndConnect()">✓ Connect with Code</button>
+      <button class="btn-secondary" onclick="scanAnswerQR()">📷 Scan QR Code</button>
+      <canvas id="qrScannerCanvas" style="display:none; width:100%; margin:10px 0;"></canvas>
       
       <details>
-        <summary>Or paste full text manually</summary>
+        <summary>Or paste text manually</summary>
         <textarea id="answerInput" placeholder="Paste answer here..."></textarea>
         <button class="btn-secondary" onclick="connectCamera()">✓ Connect</button>
       </details>
@@ -169,13 +161,13 @@
   <div id="monitor" class="panel">
     <div class="step">
       <span class="step-number">1</span>
-      <strong>Enter code from Camera</strong>
+      <strong>Scan QR from Camera or paste text</strong>
     </div>
-    <input id="offerCode" type="text" placeholder="Paste code from Camera">
-    <button class="btn-primary" onclick="fetchAndCreateAnswer()">Get Camera Feed</button>
-
+    <button class="btn-primary" onclick="scanOfferQR()">📷 Scan QR Code</button>
+    <canvas id="qrScannerCanvasMonitor" style="display:none; width:100%; margin:10px 0;"></canvas>
+    
     <details>
-      <summary>Or paste full text manually</summary>
+      <summary>Or paste text manually</summary>
       <textarea id="offerInput" placeholder="Paste offer here..."></textarea>
       <button class="btn-primary" onclick="createAnswer()">Create Answer</button>
     </details>
@@ -183,13 +175,14 @@
     <div id="monitorStep2" style="display:none;">
       <div class="step">
         <span class="step-number">2</span>
-        <strong>Share this code with Camera</strong>
+        <strong>Scan this QR code on Camera</strong>
       </div>
-      <div class="code-display" id="answerCodeDisplay">Generating...</div>
-      <button class="btn-copy" onclick="copyAnswerCode()">📋 Copy Code</button>
+      <div class="qr-container">
+        <canvas id="qrCanvasAnswer"></canvas>
+      </div>
       
       <details>
-        <summary>Or copy full text manually</summary>
+        <summary>Or copy text manually</summary>
         <textarea id="answerText" readonly onclick="this.select()"></textarea>
         <button class="btn-copy" onclick="copyAnswer()">📋 Copy Text</button>
       </details>
@@ -201,6 +194,10 @@
     <button class="btn-danger" onclick="goHome()">← Back</button>
   </div>
 
+  <!-- Load QR code library -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
   <script>
     const config = {
       iceServers: [
@@ -211,6 +208,7 @@
 
     let pc = null;
     let localStream = null;
+    let scannerStream = null;
 
     function showPanel(panelId) {
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -222,6 +220,7 @@
     function goHome() { 
       if (pc) pc.close();
       if (localStream) localStream.getTracks().forEach(t => t.stop());
+      if (scannerStream) scannerStream.getTracks().forEach(t => t.stop());
       location.reload();
     }
 
@@ -230,20 +229,6 @@
       el.textContent = msg;
       el.className = 'status ' + type;
       el.style.display = 'block';
-    }
-
-    function copyCode() {
-      const code = document.getElementById('shareCode').textContent;
-      navigator.clipboard.writeText(code).then(() => {
-        showStatus('cameraStatus', '✅ Code copied! Send to Monitor.', 'success');
-      });
-    }
-
-    function copyAnswerCode() {
-      const code = document.getElementById('answerCodeDisplay').textContent;
-      navigator.clipboard.writeText(code).then(() => {
-        showStatus('monitorStatus', '✅ Code copied! Send to Camera.', 'success');
-      });
     }
 
     function copyOffer() {
@@ -260,42 +245,56 @@
       showStatus('monitorStatus', '✅ Text copied!', 'success');
     }
 
-    async function uploadToGist(content) {
+    async function generateQR(canvasId, data) {
       try {
-        const response = await fetch('https://api.github.com/gists', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            public: false,
-            files: {
-              'webrtc-signal.json': {
-                content: content
-              }
-            }
-          })
+        const canvas = document.getElementById(canvasId);
+        await QRCode.toCanvas(canvas, data, {
+          width: 400,
+          margin: 2,
+          errorCorrectionLevel: 'L' // Low error correction = more data capacity
         });
-        
-        if (!response.ok) throw new Error('Upload failed');
-        
-        const data = await response.json();
-        return data.id;
       } catch (err) {
-        console.error('Gist upload error:', err);
-        return null;
+        console.error('QR generation error:', err);
       }
     }
 
-    async function fetchFromGist(gistId) {
+    async function scanQRFromCamera(canvasId, onSuccess) {
       try {
-        const response = await fetch(`https://api.github.com/gists/${gistId}`);
-        if (!response.ok) throw new Error('Fetch failed');
-        const data = await response.json();
-        return data.files['webrtc-signal.json'].content;
+        const canvas = document.getElementById(canvasId);
+        canvas.style.display = 'block';
+        const ctx = canvas.getContext('2d');
+        
+        scannerStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'environment' } 
+        });
+        
+        const video = document.createElement('video');
+        video.srcObject = scannerStream;
+        video.play();
+        
+        video.onloadedmetadata = () => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          
+          const scan = () => {
+            if (canvas.style.display === 'none') return;
+            
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
+            
+            if (code) {
+              scannerStream.getTracks().forEach(t => t.stop());
+              canvas.style.display = 'none';
+              onSuccess(code.data);
+            } else {
+              requestAnimationFrame(scan);
+            }
+          };
+          scan();
+        };
       } catch (err) {
-        console.error('Gist fetch error:', err);
-        return null;
+        alert('Camera access denied: ' + err.message);
       }
     }
 
@@ -317,7 +316,6 @@
         });
         
         document.getElementById('cameraVideo').srcObject = localStream;
-        
         pc = new RTCPeerConnection(config);
         
         localStream.getTracks().forEach(track => {
@@ -338,18 +336,10 @@
             const offerJSON = JSON.stringify(offer);
             document.getElementById('offerText').value = offerJSON;
             
-            document.getElementById('shareCode').textContent = 'Generating code...';
+            await generateQR('qrCanvas', offerJSON);
+            
             document.getElementById('cameraStep2').style.display = 'block';
-            
-            const gistId = await uploadToGist(offerJSON);
-            
-            if (gistId) {
-              document.getElementById('shareCode').textContent = gistId;
-              showStatus('cameraStatus', '✅ Code ready! Share with Monitor.', 'success');
-            } else {
-              document.getElementById('shareCode').textContent = 'Failed - use manual';
-              showStatus('cameraStatus', '⚠️ Code failed. Use manual method below.', 'error');
-            }
+            showStatus('cameraStatus', '✅ QR code ready! Scan on Monitor.', 'success');
           }
         };
 
@@ -361,29 +351,19 @@
       }
     }
 
-    async function fetchAndConnect() {
-      const code = document.getElementById('answerCode').value.trim();
-      if (!code) {
-        showStatus('cameraStatus', '⚠️ Please enter the code from Monitor!', 'error');
-        return;
-      }
-
-      showStatus('cameraStatus', '⏳ Fetching answer...', '');
-      const answerJSON = await fetchFromGist(code);
-      
-      if (answerJSON) {
-        document.getElementById('answerInput').value = answerJSON;
+    function scanAnswerQR() {
+      showStatus('cameraStatus', '📷 Point camera at QR code...', '');
+      scanQRFromCamera('qrScannerCanvas', async (data) => {
+        document.getElementById('answerInput').value = data;
         await connectCamera();
-      } else {
-        showStatus('cameraStatus', '❌ Invalid code. Use manual method below.', 'error');
-      }
+      });
     }
 
     async function connectCamera() {
       try {
         const input = document.getElementById('answerInput').value.trim();
         if (!input) {
-          showStatus('cameraStatus', '⚠️ Please paste the answer first!', 'error');
+          showStatus('cameraStatus', '⚠️ Paste answer first!', 'error');
           return;
         }
 
@@ -396,46 +376,36 @@
           }
         }
 
-        showStatus('cameraStatus', '✅ Connected! Monitor should see video with audio.', 'success');
+        showStatus('cameraStatus', '✅ Connected!', 'success');
       } catch (err) {
         showStatus('cameraStatus', '❌ Error: ' + err.message, 'error');
       }
     }
 
-    async function fetchAndCreateAnswer() {
-      const code = document.getElementById('offerCode').value.trim();
-      if (!code) {
-        showStatus('monitorStatus', '⚠️ Please enter the code from Camera!', 'error');
-        return;
-      }
-
-      showStatus('monitorStatus', '⏳ Fetching camera info...', '');
-      const offerJSON = await fetchFromGist(code);
-      
-      if (offerJSON) {
-        document.getElementById('offerInput').value = offerJSON;
+    function scanOfferQR() {
+      showStatus('monitorStatus', '📷 Point camera at QR code...', '');
+      scanQRFromCamera('qrScannerCanvasMonitor', async (data) => {
+        document.getElementById('offerInput').value = data;
         await createAnswer();
-      } else {
-        showStatus('monitorStatus', '❌ Invalid code. Use manual method below.', 'error');
-      }
+      });
     }
 
     async function createAnswer() {
       try {
         const input = document.getElementById('offerInput').value.trim();
         if (!input) {
-          showStatus('monitorStatus', '⚠️ Please paste the offer first!', 'error');
+          showStatus('monitorStatus', '⚠️ Paste offer first!', 'error');
           return;
         }
 
-        showStatus('monitorStatus', '📡 Creating connection...');
+        showStatus('monitorStatus', '📡 Connecting...');
 
         const offer = JSON.parse(input);
         pc = new RTCPeerConnection(config);
 
         pc.ontrack = e => {
           document.getElementById('monitorVideo').srcObject = e.streams[0];
-          showStatus('monitorStatus', '✅ Receiving video with audio!', 'success');
+          showStatus('monitorStatus', '✅ Receiving video!', 'success');
         };
 
         const iceCandidates = [];
@@ -452,18 +422,10 @@
             const answerJSON = JSON.stringify(answer);
             document.getElementById('answerText').value = answerJSON;
             
-            document.getElementById('answerCodeDisplay').textContent = 'Generating code...';
+            await generateQR('qrCanvasAnswer', answerJSON);
+            
             document.getElementById('monitorStep2').style.display = 'block';
-            
-            const gistId = await uploadToGist(answerJSON);
-            
-            if (gistId) {
-              document.getElementById('answerCodeDisplay').textContent = gistId;
-              showStatus('monitorStatus', '✅ Code ready! Share with Camera.', 'success');
-            } else {
-              document.getElementById('answerCodeDisplay').textContent = 'Failed - use manual';
-              showStatus('monitorStatus', '⚠️ Code failed. Use manual method below.', 'error');
-            }
+            showStatus('monitorStatus', '✅ QR code ready! Scan on Camera.', 'success');
           }
         };
 
