@@ -48,6 +48,16 @@
     .btn-secondary { background: #34c759; color: white; }
     .btn-copy { background: #ff9500; color: white; }
     .btn-danger { background: #ff3b30; color: white; }
+    input {
+      width: 100%;
+      padding: 15px;
+      margin: 10px 0;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      text-align: center;
+      font-family: monospace;
+    }
     textarea {
       width: 100%;
       min-height: 120px;
@@ -79,6 +89,29 @@
     }
     .status.success { background: #d4edda; color: #155724; }
     .status.error { background: #f8d7da; color: #721c24; }
+    .code-display {
+      font-size: 20px;
+      font-weight: bold;
+      text-align: center;
+      color: #007aff;
+      padding: 20px;
+      background: white;
+      border-radius: 12px;
+      margin: 20px 0;
+      word-break: break-all;
+      font-family: monospace;
+    }
+    details {
+      margin: 10px 0;
+      padding: 10px;
+      background: #f9f9f9;
+      border-radius: 8px;
+    }
+    summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: #666;
+    }
   </style>
 </head>
 <body>
@@ -101,17 +134,29 @@
     <div id="cameraStep2" style="display:none;">
       <div class="step">
         <span class="step-number">2</span>
-        <strong>Copy this text and send to Monitor device</strong>
+        <strong>Share this code with Monitor device</strong>
       </div>
-      <textarea id="offerText" readonly onclick="this.select()"></textarea>
-      <button class="btn-copy" onclick="copyOffer()">📋 Copy Offer</button>
+      <div class="code-display" id="shareCode">Generating...</div>
+      <button class="btn-copy" onclick="copyCode()">📋 Copy Code</button>
+      
+      <details>
+        <summary>Or copy full text manually</summary>
+        <textarea id="offerText" readonly onclick="this.select()"></textarea>
+        <button class="btn-copy" onclick="copyOffer()">📋 Copy Text</button>
+      </details>
       
       <div class="step">
         <span class="step-number">3</span>
-        <strong>Paste the answer you receive from Monitor</strong>
+        <strong>Enter code from Monitor</strong>
       </div>
-      <textarea id="answerInput" placeholder="Paste answer here..."></textarea>
-      <button class="btn-secondary" onclick="connectCamera()">✓ Connect</button>
+      <input id="answerCode" type="text" placeholder="Paste code from Monitor">
+      <button class="btn-secondary" onclick="fetchAndConnect()">✓ Connect with Code</button>
+      
+      <details>
+        <summary>Or paste full text manually</summary>
+        <textarea id="answerInput" placeholder="Paste answer here..."></textarea>
+        <button class="btn-secondary" onclick="connectCamera()">✓ Connect</button>
+      </details>
     </div>
 
     <div id="cameraStatus" class="status" style="display:none;"></div>
@@ -124,18 +169,30 @@
   <div id="monitor" class="panel">
     <div class="step">
       <span class="step-number">1</span>
-      <strong>Paste the offer from Camera device</strong>
+      <strong>Enter code from Camera</strong>
     </div>
-    <textarea id="offerInput" placeholder="Paste offer here..."></textarea>
-    <button class="btn-primary" onclick="createAnswer()">Create Answer</button>
+    <input id="offerCode" type="text" placeholder="Paste code from Camera">
+    <button class="btn-primary" onclick="fetchAndCreateAnswer()">Get Camera Feed</button>
+
+    <details>
+      <summary>Or paste full text manually</summary>
+      <textarea id="offerInput" placeholder="Paste offer here..."></textarea>
+      <button class="btn-primary" onclick="createAnswer()">Create Answer</button>
+    </details>
 
     <div id="monitorStep2" style="display:none;">
       <div class="step">
         <span class="step-number">2</span>
-        <strong>Copy this text and send back to Camera</strong>
+        <strong>Share this code with Camera</strong>
       </div>
-      <textarea id="answerText" readonly onclick="this.select()"></textarea>
-      <button class="btn-copy" onclick="copyAnswer()">📋 Copy Answer</button>
+      <div class="code-display" id="answerCodeDisplay">Generating...</div>
+      <button class="btn-copy" onclick="copyAnswerCode()">📋 Copy Code</button>
+      
+      <details>
+        <summary>Or copy full text manually</summary>
+        <textarea id="answerText" readonly onclick="this.select()"></textarea>
+        <button class="btn-copy" onclick="copyAnswer()">📋 Copy Text</button>
+      </details>
     </div>
 
     <div id="monitorStatus" class="status" style="display:none;"></div>
@@ -175,18 +232,71 @@
       el.style.display = 'block';
     }
 
+    function copyCode() {
+      const code = document.getElementById('shareCode').textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        showStatus('cameraStatus', '✅ Code copied! Send to Monitor.', 'success');
+      });
+    }
+
+    function copyAnswerCode() {
+      const code = document.getElementById('answerCodeDisplay').textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        showStatus('monitorStatus', '✅ Code copied! Send to Camera.', 'success');
+      });
+    }
+
     function copyOffer() {
       const text = document.getElementById('offerText');
       text.select();
       document.execCommand('copy');
-      showStatus('cameraStatus', '✅ Copied! Send this to Monitor device.', 'success');
+      showStatus('cameraStatus', '✅ Text copied!', 'success');
     }
 
     function copyAnswer() {
       const text = document.getElementById('answerText');
       text.select();
       document.execCommand('copy');
-      showStatus('monitorStatus', '✅ Copied! Send this back to Camera.', 'success');
+      showStatus('monitorStatus', '✅ Text copied!', 'success');
+    }
+
+    async function uploadToGist(content) {
+      try {
+        const response = await fetch('https://api.github.com/gists', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            public: false,
+            files: {
+              'webrtc-signal.json': {
+                content: content
+              }
+            }
+          })
+        });
+        
+        if (!response.ok) throw new Error('Upload failed');
+        
+        const data = await response.json();
+        return data.id;
+      } catch (err) {
+        console.error('Gist upload error:', err);
+        return null;
+      }
+    }
+
+    async function fetchFromGist(gistId) {
+      try {
+        const response = await fetch(`https://api.github.com/gists/${gistId}`);
+        if (!response.ok) throw new Error('Fetch failed');
+        const data = await response.json();
+        return data.files['webrtc-signal.json'].content;
+      } catch (err) {
+        console.error('Gist fetch error:', err);
+        return null;
+      }
     }
 
     async function startCamera() {
@@ -219,15 +329,27 @@
           if (e.candidate) iceCandidates.push(e.candidate);
         };
 
-        pc.onicegatheringstatechange = () => {
+        pc.onicegatheringstatechange = async () => {
           if (pc.iceGatheringState === 'complete') {
             const offer = {
               sdp: pc.localDescription,
               candidates: iceCandidates
             };
-            document.getElementById('offerText').value = JSON.stringify(offer);
+            const offerJSON = JSON.stringify(offer);
+            document.getElementById('offerText').value = offerJSON;
+            
+            document.getElementById('shareCode').textContent = 'Generating code...';
             document.getElementById('cameraStep2').style.display = 'block';
-            showStatus('cameraStatus', '✅ Camera ready! Follow steps above.', 'success');
+            
+            const gistId = await uploadToGist(offerJSON);
+            
+            if (gistId) {
+              document.getElementById('shareCode').textContent = gistId;
+              showStatus('cameraStatus', '✅ Code ready! Share with Monitor.', 'success');
+            } else {
+              document.getElementById('shareCode').textContent = 'Failed - use manual';
+              showStatus('cameraStatus', '⚠️ Code failed. Use manual method below.', 'error');
+            }
           }
         };
 
@@ -236,6 +358,24 @@
         
       } catch (err) {
         showStatus('cameraStatus', '❌ Error: ' + err.message, 'error');
+      }
+    }
+
+    async function fetchAndConnect() {
+      const code = document.getElementById('answerCode').value.trim();
+      if (!code) {
+        showStatus('cameraStatus', '⚠️ Please enter the code from Monitor!', 'error');
+        return;
+      }
+
+      showStatus('cameraStatus', '⏳ Fetching answer...', '');
+      const answerJSON = await fetchFromGist(code);
+      
+      if (answerJSON) {
+        document.getElementById('answerInput').value = answerJSON;
+        await connectCamera();
+      } else {
+        showStatus('cameraStatus', '❌ Invalid code. Use manual method below.', 'error');
       }
     }
 
@@ -262,6 +402,24 @@
       }
     }
 
+    async function fetchAndCreateAnswer() {
+      const code = document.getElementById('offerCode').value.trim();
+      if (!code) {
+        showStatus('monitorStatus', '⚠️ Please enter the code from Camera!', 'error');
+        return;
+      }
+
+      showStatus('monitorStatus', '⏳ Fetching camera info...', '');
+      const offerJSON = await fetchFromGist(code);
+      
+      if (offerJSON) {
+        document.getElementById('offerInput').value = offerJSON;
+        await createAnswer();
+      } else {
+        showStatus('monitorStatus', '❌ Invalid code. Use manual method below.', 'error');
+      }
+    }
+
     async function createAnswer() {
       try {
         const input = document.getElementById('offerInput').value.trim();
@@ -285,15 +443,27 @@
           if (e.candidate) iceCandidates.push(e.candidate);
         };
 
-        pc.onicegatheringstatechange = () => {
+        pc.onicegatheringstatechange = async () => {
           if (pc.iceGatheringState === 'complete') {
             const answer = {
               sdp: pc.localDescription,
               candidates: iceCandidates
             };
-            document.getElementById('answerText').value = JSON.stringify(answer);
+            const answerJSON = JSON.stringify(answer);
+            document.getElementById('answerText').value = answerJSON;
+            
+            document.getElementById('answerCodeDisplay').textContent = 'Generating code...';
             document.getElementById('monitorStep2').style.display = 'block';
-            showStatus('monitorStatus', '✅ Answer ready! Copy and send to Camera.', 'success');
+            
+            const gistId = await uploadToGist(answerJSON);
+            
+            if (gistId) {
+              document.getElementById('answerCodeDisplay').textContent = gistId;
+              showStatus('monitorStatus', '✅ Code ready! Share with Camera.', 'success');
+            } else {
+              document.getElementById('answerCodeDisplay').textContent = 'Failed - use manual';
+              showStatus('monitorStatus', '⚠️ Code failed. Use manual method below.', 'error');
+            }
           }
         };
 
