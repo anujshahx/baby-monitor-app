@@ -162,6 +162,58 @@
       box-shadow: 0 6px 20px rgba(250, 112, 154, 0.4);
       transform: translateY(-2px);
     }
+
+    .sound-controls {
+      margin: 20px 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+      border-radius: 15px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .sound-controls h3 {
+      color: #2d3748;
+      margin-bottom: 15px;
+      text-align: center;
+      font-size: 18px;
+    }
+
+    .sound-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .sound-btn {
+      padding: 15px;
+      background: white;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 14px;
+      font-weight: 600;
+      color: #2d3748;
+    }
+
+    .sound-btn:hover {
+      border-color: #667eea;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .sound-btn.active {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-color: #667eea;
+    }
+
+    .sound-btn.stop-btn {
+      grid-column: span 2;
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+      color: white;
+      border: none;
+    }
     
     textarea {
       width: 100%;
@@ -294,6 +346,7 @@
       .content { padding: 20px; }
       button { padding: 14px; font-size: 15px; }
       .mic-button { width: 50px; height: 50px; font-size: 20px; }
+      .sound-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -374,6 +427,17 @@
               <span class="icon">📋</span>Copy Answer
             </button>
           </div>
+
+          <div class="sound-controls" id="soundControls" style="display:none;">
+            <h3>🎵 Soothing Sounds</h3>
+            <div class="sound-grid">
+              <button class="sound-btn" onclick="playSound('lullaby1')">🎼 Twinkle Twinkle</button>
+              <button class="sound-btn" onclick="playSound('lullaby2')">🌙 Brahms Lullaby</button>
+              <button class="sound-btn" onclick="playSound('whitenoise')">🌊 White Noise</button>
+              <button class="sound-btn" onclick="playSound('rain')">🌧️ Rain Sounds</button>
+              <button class="sound-btn stop-btn" onclick="stopSound()">⏹️ Stop Sound</button>
+            </div>
+          </div>
         </div>
 
         <div id="monitorStatus" class="status" style="display:none;"></div>
@@ -405,6 +469,13 @@
     let monitorMicStream = null;
     let monitorMicTrack = null;
     let cameraAudioTrack = null;
+    let dataChannel = null;
+    let currentSound = null;
+
+    // Audio context for generating sounds
+    let audioContext = null;
+    let oscillator = null;
+    let gainNode = null;
 
     function showPanel(panelId) {
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -417,6 +488,7 @@
       if (pc) pc.close();
       if (localStream) localStream.getTracks().forEach(t => t.stop());
       if (monitorMicStream) monitorMicStream.getTracks().forEach(t => t.stop());
+      stopSound();
       location.reload();
     }
 
@@ -463,8 +535,6 @@
         });
         
         document.getElementById('cameraVideo').srcObject = localStream;
-        
-        // Store camera audio track reference
         cameraAudioTrack = localStream.getAudioTracks()[0];
         
         pc = new RTCPeerConnection(config);
@@ -472,6 +542,12 @@
         localStream.getTracks().forEach(track => {
           pc.addTrack(track, localStream);
         });
+
+        // Set up data channel for sound commands
+        pc.ondatachannel = e => {
+          dataChannel = e.channel;
+          dataChannel.onmessage = handleSoundCommand;
+        };
 
         // Listen for remote audio from monitor
         pc.ontrack = e => {
@@ -504,6 +580,116 @@
       }
     }
 
+    function handleSoundCommand(event) {
+      const command = JSON.parse(event.data);
+      
+      if (command.action === 'play') {
+        playSoundOnCamera(command.sound);
+      } else if (command.action === 'stop') {
+        stopSoundOnCamera();
+      }
+    }
+
+    function playSoundOnCamera(soundType) {
+      stopSoundOnCamera(); // Stop any currently playing sound
+      
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      gainNode = audioContext.createGain();
+      gainNode.gain.value = 0.3; // Set volume
+      gainNode.connect(audioContext.destination);
+
+      if (soundType === 'lullaby1' || soundType === 'lullaby2') {
+        playLullaby(soundType);
+      } else if (soundType === 'whitenoise') {
+        playWhiteNoise();
+      } else if (soundType === 'rain') {
+        playRainSound();
+      }
+    }
+
+    function playLullaby(type) {
+      // Twinkle Twinkle or Brahms melody
+      const melodies = {
+        lullaby1: [261.63, 261.63, 392.00, 392.00, 440.00, 440.00, 392.00, 349.23, 349.23, 329.63, 329.63, 293.66, 293.66, 261.63],
+        lullaby2: [329.63, 293.66, 293.66, 329.63, 293.66, 261.63, 293.66, 329.63, 329.63, 293.66]
+      };
+      
+      const melody = melodies[type];
+      let index = 0;
+      
+      function playNote() {
+        if (!audioContext) return;
+        
+        oscillator = audioContext.createOscillator();
+        oscillator.type = 'sine';
+        oscillator.frequency.value = melody[index];
+        oscillator.connect(gainNode);
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.5);
+        
+        index = (index + 1) % melody.length;
+        setTimeout(playNote, 600);
+      }
+      
+      playNote();
+    }
+
+    function playWhiteNoise() {
+      const bufferSize = 2 * audioContext.sampleRate;
+      const noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      
+      const whiteNoise = audioContext.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+      whiteNoise.loop = true;
+      whiteNoise.connect(gainNode);
+      whiteNoise.start();
+      
+      oscillator = whiteNoise; // Store reference for stopping
+    }
+
+    function playRainSound() {
+      // Simulate rain with filtered white noise
+      const bufferSize = 2 * audioContext.sampleRate;
+      const noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = (Math.random() * 2 - 1) * 0.5;
+      }
+      
+      const rain = audioContext.createBufferSource();
+      rain.buffer = noiseBuffer;
+      rain.loop = true;
+      
+      const filter = audioContext.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 800;
+      
+      rain.connect(filter);
+      filter.connect(gainNode);
+      rain.start();
+      
+      oscillator = rain;
+    }
+
+    function stopSoundOnCamera() {
+      if (oscillator) {
+        try {
+          oscillator.stop();
+        } catch (e) {}
+        oscillator = null;
+      }
+      if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+      }
+    }
+
     async function connectCamera() {
       try {
         const input = document.getElementById('answerInput').value.trim();
@@ -521,7 +707,7 @@
           }
         }
 
-        showStatus('cameraStatus', '✅ Connected! Monitor can talk to you.', 'success');
+        showStatus('cameraStatus', '✅ Connected! Ready to receive sounds.', 'success');
       } catch (err) {
         showStatus('cameraStatus', '❌ Error: ' + err.message, 'error');
       }
@@ -537,7 +723,6 @@
 
         showStatus('monitorStatus', '📡 Creating connection...');
 
-        // Get microphone permission first
         monitorMicStream = await navigator.mediaDevices.getUserMedia({ 
           audio: {
             echoCancellation: true,
@@ -547,19 +732,21 @@
         });
         
         monitorMicTrack = monitorMicStream.getAudioTracks()[0];
-        monitorMicTrack.enabled = false; // Muted by default
+        monitorMicTrack.enabled = false;
 
         const offer = JSON.parse(input);
         pc = new RTCPeerConnection(config);
 
-        // Add monitor's microphone (muted initially)
+        // Create data channel for sound commands
+        dataChannel = pc.createDataChannel('sounds');
+
         pc.addTrack(monitorMicTrack, monitorMicStream);
 
-        // Receive camera video/audio
         pc.ontrack = e => {
           if (e.track.kind === 'video') {
             document.getElementById('monitorVideo').srcObject = e.streams[0];
             document.getElementById('micBtn').style.display = 'flex';
+            document.getElementById('soundControls').style.display = 'block';
             showStatus('monitorStatus', '✅ Receiving video with audio!', 'success');
           }
         };
@@ -597,6 +784,36 @@
       }
     }
 
+    function playSound(soundType) {
+      if (!dataChannel || dataChannel.readyState !== 'open') {
+        alert('Please connect to camera first!');
+        return;
+      }
+
+      // Update UI
+      document.querySelectorAll('.sound-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+
+      // Send command to camera
+      dataChannel.send(JSON.stringify({
+        action: 'play',
+        sound: soundType
+      }));
+
+      currentSound = soundType;
+    }
+
+    function stopSound() {
+      if (dataChannel && dataChannel.readyState === 'open') {
+        dataChannel.send(JSON.stringify({
+          action: 'stop'
+        }));
+      }
+
+      document.querySelectorAll('.sound-btn').forEach(btn => btn.classList.remove('active'));
+      currentSound = null;
+    }
+
     function startTalking() {
       if (!monitorMicTrack) return;
 
@@ -604,10 +821,8 @@
       btn.classList.add('active');
       btn.textContent = '🔴';
 
-      // Unmute monitor mic
       monitorMicTrack.enabled = true;
       
-      // Mute camera microphone to prevent feedback
       if (cameraAudioTrack) {
         cameraAudioTrack.enabled = false;
       }
@@ -620,10 +835,8 @@
       btn.classList.remove('active');
       btn.textContent = '🎤';
 
-      // Mute monitor mic
       monitorMicTrack.enabled = false;
       
-      // Unmute camera microphone
       if (cameraAudioTrack) {
         cameraAudioTrack.enabled = true;
       }
