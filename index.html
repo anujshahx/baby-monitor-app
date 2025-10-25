@@ -162,28 +162,6 @@
       box-shadow: 0 6px 20px rgba(250, 112, 154, 0.4);
       transform: translateY(-2px);
     }
-
-    .btn-talk {
-      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
-      color: white;
-      font-size: 18px;
-      padding: 20px;
-    }
-
-    .btn-talk:hover {
-      box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
-      transform: translateY(-2px);
-    }
-
-    .btn-talk.active {
-      background: linear-gradient(135deg, #ee5a6f 0%, #c92a2a 100%);
-      animation: pulse 1s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7); }
-      50% { box-shadow: 0 0 0 10px rgba(255, 107, 107, 0); }
-    }
     
     textarea {
       width: 100%;
@@ -206,13 +184,57 @@
       background: white;
     }
     
+    .video-container {
+      position: relative;
+      margin: 15px 0;
+    }
+
     video {
       width: 100%;
       border-radius: 15px;
       background: #000;
-      margin: 15px 0;
       min-height: 200px;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      display: block;
+    }
+
+    .mic-button {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+      color: white;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      z-index: 10;
+    }
+
+    .mic-button:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 20px rgba(255, 107, 107, 0.5);
+    }
+
+    .mic-button.active {
+      background: linear-gradient(135deg, #ee5a6f 0%, #c92a2a 100%);
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { 
+        box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7);
+      }
+      50% { 
+        box-shadow: 0 0 0 15px rgba(255, 107, 107, 0);
+      }
     }
     
     .panel { 
@@ -266,25 +288,12 @@
       margin-right: 8px;
       font-size: 20px;
     }
-
-    .audio-controls {
-      margin: 20px 0;
-      padding: 20px;
-      background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
-      border-radius: 15px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-
-    .audio-controls h3 {
-      color: #2d3748;
-      margin-bottom: 10px;
-      text-align: center;
-    }
     
     @media (max-width: 480px) {
       .header h1 { font-size: 26px; }
       .content { padding: 20px; }
       button { padding: 14px; font-size: 15px; }
+      .mic-button { width: 50px; height: 50px; font-size: 20px; }
     }
   </style>
 </head>
@@ -299,7 +308,7 @@
       <!-- Home Screen -->
       <div id="home" class="panel active">
         <div class="home-buttons">
-          <button class="btn-primary" onclick="showCamera()">
+          <button class="btn-primary" onclick="initCamera()">
             <span class="icon">📷</span>Use as Camera
           </button>
           <button class="btn-secondary" onclick="showMonitor()">
@@ -313,35 +322,23 @@
         <div class="step">
           <div class="step-header">
             <div class="step-number">1</div>
-            <div class="step-title">Start your camera</div>
+            <div class="step-title">Copy & send to Monitor</div>
           </div>
+          <textarea id="offerText" readonly onclick="this.select()"></textarea>
+          <button class="btn-copy" onclick="copyOffer()">
+            <span class="icon">📋</span>Copy Offer
+          </button>
         </div>
-        <button class="btn-primary" onclick="startCamera()">
-          <span class="icon">▶</span>Start Camera
-        </button>
         
-        <div id="cameraStep2" style="display:none;">
-          <div class="step">
-            <div class="step-header">
-              <div class="step-number">2</div>
-              <div class="step-title">Copy & send to Monitor</div>
-            </div>
-            <textarea id="offerText" readonly onclick="this.select()"></textarea>
-            <button class="btn-copy" onclick="copyOffer()">
-              <span class="icon">📋</span>Copy Offer
-            </button>
+        <div class="step">
+          <div class="step-header">
+            <div class="step-number">2</div>
+            <div class="step-title">Paste answer from Monitor</div>
           </div>
-          
-          <div class="step">
-            <div class="step-header">
-              <div class="step-number">3</div>
-              <div class="step-title">Paste answer from Monitor</div>
-            </div>
-            <textarea id="answerInput" placeholder="Paste answer here..."></textarea>
-            <button class="btn-secondary" onclick="connectCamera()">
-              <span class="icon">✓</span>Connect
-            </button>
-          </div>
+          <textarea id="answerInput" placeholder="Paste answer here..."></textarea>
+          <button class="btn-secondary" onclick="connectCamera()">
+            <span class="icon">✓</span>Connect
+          </button>
         </div>
 
         <div id="cameraStatus" class="status" style="display:none;"></div>
@@ -377,20 +374,16 @@
               <span class="icon">📋</span>Copy Answer
             </button>
           </div>
-
-          <div class="audio-controls">
-            <h3>🎤 Talk to Baby</h3>
-            <button id="talkBtn" class="btn-talk" onmousedown="startTalking()" onmouseup="stopTalking()" ontouchstart="startTalking()" ontouchend="stopTalking()">
-              <span class="icon">🎤</span>Hold to Talk
-            </button>
-            <p style="text-align:center; color:#2d3748; font-size:14px; margin-top:10px;">
-              Press and hold to send audio to camera
-            </p>
-          </div>
         </div>
 
         <div id="monitorStatus" class="status" style="display:none;"></div>
-        <video id="monitorVideo" autoplay playsinline></video>
+        
+        <div class="video-container">
+          <video id="monitorVideo" autoplay playsinline></video>
+          <button id="micBtn" class="mic-button" style="display:none;" onmousedown="startTalking()" onmouseup="stopTalking()" ontouchstart="startTalking()" ontouchend="stopTalking()">
+            🎤
+          </button>
+        </div>
         
         <button class="btn-danger" onclick="goHome()">
           <span class="icon">←</span>Back to Home
@@ -411,13 +404,13 @@
     let localStream = null;
     let monitorMicStream = null;
     let monitorMicTrack = null;
+    let cameraAudioTrack = null;
 
     function showPanel(panelId) {
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
       document.getElementById(panelId).classList.add('active');
     }
 
-    function showCamera() { showPanel('camera'); }
     function showMonitor() { showPanel('monitor'); }
     
     function goHome() { 
@@ -448,10 +441,14 @@
       showStatus('monitorStatus', '✅ Copied! Send this back to Camera.', 'success');
     }
 
+    async function initCamera() {
+      showPanel('camera');
+      showStatus('cameraStatus', '📷 Starting camera...', '');
+      await startCamera();
+    }
+
     async function startCamera() {
       try {
-        showStatus('cameraStatus', '📷 Starting camera...');
-        
         localStream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
             facingMode: 'environment',
@@ -467,6 +464,9 @@
         
         document.getElementById('cameraVideo').srcObject = localStream;
         
+        // Store camera audio track reference
+        cameraAudioTrack = localStream.getAudioTracks()[0];
+        
         pc = new RTCPeerConnection(config);
         
         localStream.getTracks().forEach(track => {
@@ -475,7 +475,6 @@
 
         // Listen for remote audio from monitor
         pc.ontrack = e => {
-          console.log('Received track:', e.track.kind);
           if (e.track.kind === 'audio' && e.streams[0]) {
             document.getElementById('remoteAudio').srcObject = e.streams[0];
           }
@@ -493,8 +492,7 @@
               candidates: iceCandidates
             };
             document.getElementById('offerText').value = JSON.stringify(offer);
-            document.getElementById('cameraStep2').style.display = 'block';
-            showStatus('cameraStatus', '✅ Camera ready! Follow steps above.', 'success');
+            showStatus('cameraStatus', '✅ Ready! Copy and send offer to Monitor.', 'success');
           }
         };
 
@@ -559,9 +557,9 @@
 
         // Receive camera video/audio
         pc.ontrack = e => {
-          console.log('Monitor received track:', e.track.kind);
           if (e.track.kind === 'video') {
             document.getElementById('monitorVideo').srcObject = e.streams[0];
+            document.getElementById('micBtn').style.display = 'flex';
             showStatus('monitorStatus', '✅ Receiving video with audio!', 'success');
           }
         };
@@ -600,26 +598,35 @@
     }
 
     function startTalking() {
-      if (!monitorMicTrack) {
-        alert('Microphone not available');
-        return;
-      }
+      if (!monitorMicTrack) return;
 
-      const btn = document.getElementById('talkBtn');
+      const btn = document.getElementById('micBtn');
       btn.classList.add('active');
-      btn.innerHTML = '<span class="icon">🔴</span>Talking...';
+      btn.textContent = '🔴';
 
+      // Unmute monitor mic
       monitorMicTrack.enabled = true;
+      
+      // Mute camera microphone to prevent feedback
+      if (cameraAudioTrack) {
+        cameraAudioTrack.enabled = false;
+      }
     }
 
     function stopTalking() {
       if (!monitorMicTrack) return;
 
-      const btn = document.getElementById('talkBtn');
+      const btn = document.getElementById('micBtn');
       btn.classList.remove('active');
-      btn.innerHTML = '<span class="icon">🎤</span>Hold to Talk';
+      btn.textContent = '🎤';
 
+      // Mute monitor mic
       monitorMicTrack.enabled = false;
+      
+      // Unmute camera microphone
+      if (cameraAudioTrack) {
+        cameraAudioTrack.enabled = true;
+      }
     }
   </script>
 </body>
