@@ -471,8 +471,6 @@
     let cameraAudioTrack = null;
     let dataChannel = null;
     let currentSound = null;
-
-    // Audio context for generating sounds
     let audioContext = null;
     let oscillator = null;
     let gainNode = null;
@@ -488,7 +486,7 @@
       if (pc) pc.close();
       if (localStream) localStream.getTracks().forEach(t => t.stop());
       if (monitorMicStream) monitorMicStream.getTracks().forEach(t => t.stop());
-      stopSound();
+      stopSoundOnCamera();
       location.reload();
     }
 
@@ -543,13 +541,15 @@
           pc.addTrack(track, localStream);
         });
 
-        // Set up data channel for sound commands
+        // Set up data channel listener
         pc.ondatachannel = e => {
           dataChannel = e.channel;
+          dataChannel.onopen = () => {
+            console.log('DataChannel opened on camera');
+          };
           dataChannel.onmessage = handleSoundCommand;
         };
 
-        // Listen for remote audio from monitor
         pc.ontrack = e => {
           if (e.track.kind === 'audio' && e.streams[0]) {
             document.getElementById('remoteAudio').srcObject = e.streams[0];
@@ -591,11 +591,11 @@
     }
 
     function playSoundOnCamera(soundType) {
-      stopSoundOnCamera(); // Stop any currently playing sound
+      stopSoundOnCamera();
       
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
       gainNode = audioContext.createGain();
-      gainNode.gain.value = 0.3; // Set volume
+      gainNode.gain.value = 0.3;
       gainNode.connect(audioContext.destination);
 
       if (soundType === 'lullaby1' || soundType === 'lullaby2') {
@@ -608,7 +608,6 @@
     }
 
     function playLullaby(type) {
-      // Twinkle Twinkle or Brahms melody
       const melodies = {
         lullaby1: [261.63, 261.63, 392.00, 392.00, 440.00, 440.00, 392.00, 349.23, 349.23, 329.63, 329.63, 293.66, 293.66, 261.63],
         lullaby2: [329.63, 293.66, 293.66, 329.63, 293.66, 261.63, 293.66, 329.63, 329.63, 293.66]
@@ -649,11 +648,10 @@
       whiteNoise.connect(gainNode);
       whiteNoise.start();
       
-      oscillator = whiteNoise; // Store reference for stopping
+      oscillator = whiteNoise;
     }
 
     function playRainSound() {
-      // Simulate rain with filtered white noise
       const bufferSize = 2 * audioContext.sampleRate;
       const noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
       const output = noiseBuffer.getChannelData(0);
@@ -737,8 +735,13 @@
         const offer = JSON.parse(input);
         pc = new RTCPeerConnection(config);
 
-        // Create data channel for sound commands
+        // Create data channel BEFORE creating answer
         dataChannel = pc.createDataChannel('sounds');
+        
+        dataChannel.onopen = () => {
+          console.log('DataChannel opened on monitor');
+          document.getElementById('soundControls').style.display = 'block';
+        };
 
         pc.addTrack(monitorMicTrack, monitorMicStream);
 
@@ -746,7 +749,6 @@
           if (e.track.kind === 'video') {
             document.getElementById('monitorVideo').srcObject = e.streams[0];
             document.getElementById('micBtn').style.display = 'flex';
-            document.getElementById('soundControls').style.display = 'block';
             showStatus('monitorStatus', '✅ Receiving video with audio!', 'success');
           }
         };
@@ -786,21 +788,20 @@
 
     function playSound(soundType) {
       if (!dataChannel || dataChannel.readyState !== 'open') {
-        alert('Please connect to camera first!');
+        showStatus('monitorStatus', '⚠️ DataChannel not ready. Make sure Camera connected the answer!', 'error');
         return;
       }
 
-      // Update UI
-      document.querySelectorAll('.sound-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.sound-btn:not(.stop-btn)').forEach(btn => btn.classList.remove('active'));
       event.target.classList.add('active');
 
-      // Send command to camera
       dataChannel.send(JSON.stringify({
         action: 'play',
         sound: soundType
       }));
 
       currentSound = soundType;
+      showStatus('monitorStatus', `🎵 Playing ${event.target.textContent}`, 'success');
     }
 
     function stopSound() {
@@ -812,6 +813,7 @@
 
       document.querySelectorAll('.sound-btn').forEach(btn => btn.classList.remove('active'));
       currentSound = null;
+      showStatus('monitorStatus', '⏹️ Sound stopped', 'success');
     }
 
     function startTalking() {
