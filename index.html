@@ -1,896 +1,490 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Baby Monitor</title>
   <style>
-    * { 
-      box-sizing: border-box; 
-      margin: 0;
-      padding: 0;
-    }
-    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      padding: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+      min-height: 100vh; padding: 20px; display: flex; align-items: center; justify-content: center;
     }
-    
-    .container {
-      max-width: 600px;
-      width: 100%;
-      background: rgba(255, 255, 255, 0.98);
-      border-radius: 20px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      overflow: hidden;
-    }
-    
-    .header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 30px;
-      text-align: center;
-      color: white;
-    }
-    
-    .header h1 {
-      font-size: 32px;
-      font-weight: 700;
-      margin-bottom: 5px;
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    }
-    
-    .header p {
-      font-size: 14px;
-      opacity: 0.9;
-    }
-    
-    .content {
-      padding: 30px;
-    }
-    
-    .step { 
-      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-      padding: 20px;
-      margin: 20px 0;
-      border-radius: 15px;
-      border-left: 5px solid #667eea;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    
-    .step-header {
-      display: flex;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-    
-    .step-number {
-      width: 36px;
-      height: 36px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      font-size: 18px;
-      margin-right: 15px;
-      box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
-    }
-    
-    .step-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: #2d3748;
-    }
-    
+    .container { max-width: 600px; width: 100%; background: #fff; border-radius: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.25); overflow: hidden; }
+    .header { background: linear-gradient(135deg,#667eea,#764ba2); color: #fff; padding: 28px; text-align: center; }
+    .header h1 { font-size: 28px; font-weight: 800; margin-bottom: 6px; }
+    .content { padding: 24px; }
+    .panel { display: none; }
+    .panel.active { display: block; animation: fade .25s ease; }
+    @keyframes fade { from {opacity:0; transform: translateY(6px);} to {opacity:1; transform: translateY(0);} }
+    .home-buttons { display: flex; flex-direction: column; gap: 14px; }
     button {
-      width: 100%;
-      padding: 16px;
-      margin: 12px 0;
-      font-size: 16px;
-      font-weight: 600;
-      border: none;
-      border-radius: 12px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      position: relative;
-      overflow: hidden;
+      width: 100%; padding: 14px 16px; border: 0; border-radius: 12px;
+      color: #fff; font-weight: 700; font-size: 16px; cursor: pointer; transition: transform .08s ease, box-shadow .2s ease;
+      box-shadow: 0 6px 16px rgba(0,0,0,.15);
     }
-    
-    button:before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: rgba(255, 255, 255, 0.2);
-      transition: left 0.5s ease;
-    }
-    
-    button:hover:before {
-      left: 100%;
-    }
-    
-    button:active {
-      transform: scale(0.98);
-    }
-    
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    
-    .btn-primary { 
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-    }
-    
-    .btn-primary:hover:not(:disabled) {
-      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-      transform: translateY(-2px);
-    }
-    
-    .btn-secondary { 
-      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-      color: white;
-    }
-    
-    .btn-secondary:hover:not(:disabled) {
-      box-shadow: 0 6px 20px rgba(17, 153, 142, 0.4);
-      transform: translateY(-2px);
-    }
-    
-    .btn-copy { 
-      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-      color: white;
-    }
-    
-    .btn-copy:hover:not(:disabled) {
-      box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
-      transform: translateY(-2px);
-    }
-    
-    .btn-danger { 
-      background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-      color: white;
-    }
-    
-    .btn-danger:hover:not(:disabled) {
-      box-shadow: 0 6px 20px rgba(250, 112, 154, 0.4);
-      transform: translateY(-2px);
-    }
-
-    .sound-controls {
-      margin: 20px 0;
-      padding: 20px;
-      background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-      border-radius: 15px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-
-    .sound-controls h3 {
-      color: #2d3748;
-      margin-bottom: 15px;
-      text-align: center;
-      font-size: 18px;
-    }
-
-    .sound-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-    }
-
-    .sound-btn {
-      padding: 15px;
-      background: white;
-      border: 2px solid #e2e8f0;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      font-size: 14px;
-      font-weight: 600;
-      color: #2d3748;
-    }
-
-    .sound-btn:hover:not(:disabled) {
-      border-color: #667eea;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    .sound-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .sound-btn.active {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border-color: #667eea;
-    }
-
-    .sound-btn.stop-btn {
-      grid-column: span 2;
-      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
-      color: white;
-      border: none;
-    }
-    
+    button:active { transform: scale(.98); }
+    .btn-primary { background: linear-gradient(135deg,#667eea,#764ba2); }
+    .btn-secondary { background: linear-gradient(135deg,#11998e,#38ef7d); }
+    .btn-copy { background: linear-gradient(135deg,#f093fb,#f5576c); }
+    .btn-danger { background: linear-gradient(135deg,#fa709a,#fee140); color: #222; }
+    .status { margin: 12px 0; padding: 12px; border-radius: 10px; text-align: center; font-weight: 700; }
+    .status.success { background: #e8f7ee; color: #146c2e; border: 1px solid #bfe7cb; }
+    .status.error { background: #fde8ea; color: #821d2a; border: 1px solid #f3c2c8; }
+    .status.info { background: #eaf2fd; color: #174aa7; border: 1px solid #c8dbfb; }
     textarea {
-      width: 100%;
-      min-height: 130px;
-      padding: 15px;
-      margin: 12px 0;
-      border: 2px solid #e2e8f0;
-      border-radius: 12px;
-      font-family: 'Courier New', monospace;
-      font-size: 12px;
-      resize: vertical;
-      background: #f7fafc;
-      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+      width: 100%; padding: 10px 12px; margin: 10px 0; border: 2px solid #e5e7eb; border-radius: 10px;
+      background: #f8fafc; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; resize: vertical;
     }
-    
-    textarea:focus {
-      outline: none;
-      border-color: #667eea;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-      background: white;
+    video { width: 100%; border-radius: 14px; background: #000; margin: 10px 0; min-height: 200px; }
+    .video-wrap { position: relative; }
+    .mic-fab {
+      position: absolute; bottom: 16px; right: 16px; width: 56px; height: 56px; border-radius: 50%;
+      background: linear-gradient(135deg,#ff6b6b,#ee5a6f); color: #fff; font-size: 22px; display: flex; align-items: center; justify-content: center;
+      border: 0; cursor: pointer; box-shadow: 0 10px 24px rgba(0,0,0,.25);
     }
-    
-    .video-container {
-      position: relative;
-      margin: 15px 0;
+    .mic-fab.active { background: linear-gradient(135deg,#ee5a6f,#c92a2a); }
+    .sound-card { margin: 14px 0; padding: 14px; border-radius: 14px; background: linear-gradient(135deg,#a8edea,#fed6e3); }
+    .sound-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
+    .sound-btn {
+      padding: 12px; background: #fff; border: 2px solid #e5e7eb; border-radius: 10px; color: #374151; font-weight: 700; cursor: pointer;
     }
-
-    video {
-      width: 100%;
-      border-radius: 15px;
-      background: #000;
-      min-height: 200px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-      display: block;
-    }
-
-    .mic-button {
-      position: absolute;
-      bottom: 20px;
-      right: 20px;
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
-      color: white;
-      border: none;
-      font-size: 24px;
-      cursor: pointer;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.3s ease;
-      z-index: 10;
-    }
-
-    .mic-button:hover {
-      transform: scale(1.1);
-      box-shadow: 0 6px 20px rgba(255, 107, 107, 0.5);
-    }
-
-    .mic-button.active {
-      background: linear-gradient(135deg, #ee5a6f 0%, #c92a2a 100%);
-      animation: pulse 1s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { 
-        box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7);
-      }
-      50% { 
-        box-shadow: 0 0 0 15px rgba(255, 107, 107, 0);
-      }
-    }
-    
-    .panel { 
-      display: none;
-      animation: fadeIn 0.5s ease;
-    }
-    
-    .panel.active { 
-      display: block;
-    }
-    
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    
-    .status { 
-      padding: 16px;
-      margin: 15px 0;
-      border-radius: 12px;
-      text-align: center;
-      font-weight: 600;
-      font-size: 15px;
-      animation: slideIn 0.3s ease;
-    }
-    
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateX(-20px); }
-      to { opacity: 1; transform: translateX(0); }
-    }
-    
-    .status.success { 
-      background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-      color: #155724;
-      border: 2px solid #b1dfbb;
-    }
-    
-    .status.error { 
-      background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
-      color: #721c24;
-      border: 2px solid #f1b0b7;
-    }
-    
-    .home-buttons {
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-    }
-    
-    .icon {
-      margin-right: 8px;
-      font-size: 20px;
-    }
-    
-    @media (max-width: 480px) {
-      .header h1 { font-size: 26px; }
-      .content { padding: 20px; }
-      button { padding: 14px; font-size: 15px; }
-      .mic-button { width: 50px; height: 50px; font-size: 20px; }
-      .sound-grid { grid-template-columns: 1fr; }
-    }
+    .sound-btn.active { background: linear-gradient(135deg,#667eea,#764ba2); color: #fff; border-color: transparent; }
+    .sound-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .sound-btn.stop { grid-column: span 2; background: linear-gradient(135deg,#ff6b6b,#ee5a6f); color: #fff; border: 0; }
+    .hint { text-align: center; font-size: 12px; color: #374151; opacity: .8; margin-top: 8px; }
+    @media (max-width: 480px) { .header h1 { font-size: 24px; } }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
       <h1>📹 Baby Monitor</h1>
-      <p>Secure peer-to-peer video streaming</p>
+      <div style="opacity:.9">Secure P2P video with talk-back and soothing sounds</div>
     </div>
-
     <div class="content">
-      <!-- Home Screen -->
+      <!-- Home -->
       <div id="home" class="panel active">
         <div class="home-buttons">
-          <button class="btn-primary" onclick="initCamera()">
-            <span class="icon">📷</span>Use as Camera
-          </button>
-          <button class="btn-secondary" onclick="showMonitor()">
-            <span class="icon">📺</span>Use as Monitor
-          </button>
+          <button class="btn-primary" onclick="initCamera()">📷 Use as Camera</button>
+          <button class="btn-secondary" onclick="showMonitor()">📺 Use as Monitor</button>
         </div>
       </div>
 
-      <!-- Camera Panel -->
+      <!-- Camera -->
       <div id="camera" class="panel">
-        <div class="step">
-          <div class="step-header">
-            <div class="step-number">1</div>
-            <div class="step-title">Copy & send to Monitor</div>
-          </div>
-          <textarea id="offerText" readonly onclick="this.select()"></textarea>
-          <button class="btn-copy" onclick="copyOffer()">
-            <span class="icon">📋</span>Copy Offer
-          </button>
-        </div>
-        
-        <div class="step">
-          <div class="step-header">
-            <div class="step-number">2</div>
-            <div class="step-title">Paste answer from Monitor</div>
-          </div>
-          <textarea id="answerInput" placeholder="Paste answer here..."></textarea>
-          <button class="btn-secondary" onclick="connectCamera()">
-            <span class="icon">✓</span>Connect
-          </button>
-        </div>
+        <div id="cameraStatus" class="status info" style="display:none"></div>
+        <div class="status info">Step 1: Copy this and send to Monitor</div>
+        <textarea id="offerText" readonly onclick="this.select()"></textarea>
+        <button class="btn-copy" onclick="copyOffer()">📋 Copy Offer</button>
 
-        <div id="cameraStatus" class="status" style="display:none;"></div>
+        <div class="status info" style="margin-top:8px">Step 2: Paste answer from Monitor</div>
+        <textarea id="answerInput" placeholder="Paste answer here..."></textarea>
+        <button class="btn-secondary" onclick="connectCamera()">✓ Connect</button>
+
         <video id="cameraVideo" autoplay muted playsinline></video>
         <audio id="remoteAudio" autoplay></audio>
-        
-        <button class="btn-danger" onclick="goHome()">
-          <span class="icon">←</span>Back to Home
-        </button>
+
+        <button class="btn-danger" onclick="goHome()">← Back</button>
       </div>
 
-      <!-- Monitor Panel -->
+      <!-- Monitor -->
       <div id="monitor" class="panel">
-        <div class="sound-controls">
-          <h3>🎵 Soothing Sounds</h3>
+        <div id="monitorStatus" class="status info" style="display:none"></div>
+
+        <div class="sound-card">
+          <div style="font-weight:800; margin-bottom:10px; text-align:center">🎵 Soothing Sounds</div>
           <div class="sound-grid">
-            <button class="sound-btn" onclick="playSound('lullaby1')" disabled>🎼 Twinkle Twinkle</button>
-            <button class="sound-btn" onclick="playSound('lullaby2')" disabled>🌙 Brahms Lullaby</button>
-            <button class="sound-btn" onclick="playSound('whitenoise')" disabled>🌊 White Noise</button>
-            <button class="sound-btn" onclick="playSound('rain')" disabled>🌧️ Rain Sounds</button>
-            <button class="sound-btn stop-btn" onclick="stopSound()" disabled>⏹️ Stop Sound</button>
+            <button class="sound-btn" onclick="playSound(this,'lullaby1')" disabled>🎼 Twinkle</button>
+            <button class="sound-btn" onclick="playSound(this,'lullaby2')" disabled>🌙 Brahms</button>
+            <button class="sound-btn" onclick="playSound(this,'whitenoise')" disabled>🌊 White Noise</button>
+            <button class="sound-btn" onclick="playSound(this,'rain')" disabled>🌧️ Rain</button>
+            <button class="sound-btn stop" onclick="stopSound()" disabled>⏹️ Stop</button>
           </div>
-          <p style="text-align:center; color:#2d3748; font-size:12px; margin-top:10px; opacity:0.7;" id="soundHint">
-            Waiting for Camera to connect...
-          </p>
+          <div id="soundHint" class="hint">Waiting for Camera handshake…</div>
         </div>
 
-        <div class="step">
-          <div class="step-header">
-            <div class="step-number">1</div>
-            <div class="step-title">Paste offer from Camera</div>
-          </div>
-          <textarea id="offerInput" placeholder="Paste offer here..."></textarea>
-          <button class="btn-primary" onclick="createAnswer()">
-            <span class="icon">🔗</span>Create Answer
-          </button>
+        <div class="status info">Step 1: Paste offer from Camera</div>
+        <textarea id="offerInput" placeholder="Paste offer here..."></textarea>
+        <button class="btn-primary" onclick="createAnswer()">🔗 Create Answer</button>
+
+        <div id="monitorStep2" style="display:none">
+          <div class="status info" style="margin-top:8px">Step 2: Copy and send back to Camera</div>
+          <textarea id="answerText" readonly onclick="this.select()"></textarea>
+          <button class="btn-copy" onclick="copyAnswer()">📋 Copy Answer</button>
         </div>
 
-        <div id="monitorStep2" style="display:none;">
-          <div class="step">
-            <div class="step-header">
-              <div class="step-number">2</div>
-              <div class="step-title">Copy & send to Camera</div>
-            </div>
-            <textarea id="answerText" readonly onclick="this.select()"></textarea>
-            <button class="btn-copy" onclick="copyAnswer()">
-              <span class="icon">📋</span>Copy Answer
-            </button>
-          </div>
-        </div>
-
-        <div id="monitorStatus" class="status" style="display:none;"></div>
-        
-        <div class="video-container">
+        <div class="video-wrap">
           <video id="monitorVideo" autoplay playsinline></video>
-          <button id="micBtn" class="mic-button" style="display:none;" onmousedown="startTalking()" onmouseup="stopTalking()" ontouchstart="startTalking()" ontouchend="stopTalking()">
-            🎤
-          </button>
+          <button id="micBtn" class="mic-fab" style="display:none" onpointerdown="startTalking()" onpointerup="stopTalking()" ontouchstart="startTalking()" ontouchend="stopTalking()">🎤</button>
         </div>
-        
-        <button class="btn-danger" onclick="goHome()">
-          <span class="icon">←</span>Back to Home
-        </button>
+
+        <button class="btn-danger" onclick="goHome()">← Back</button>
       </div>
     </div>
   </div>
 
   <script>
-    const config = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ]
-    };
+    // STUN only; add TURN for internet NAT traversal if needed
+    const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
 
+    // State
     let pc = null;
-    let localStream = null;
-    let monitorMicStream = null;
-    let monitorMicTrack = null;
-    let cameraAudioTrack = null;
-    let dataChannel = null;
-    let currentSound = null;
-    let audioContext = null;
-    let oscillator = null;
-    let gainNode = null;
-    let pingInterval = null;
+    let localStream = null;            // camera device
+    let cameraAudioTrack = null;       // camera mic (optional use)
+    let monitorMicStream = null;       // monitor talk-back
+    let monitorMicTrack = null;        // monitor talk-back track
+    let dataChannel = null;            // ctrl channel
+    let pingTimer = null;              // monitor handshake pinger
 
-    function showPanel(panelId) {
+    // Web Audio state (camera phone)
+    let audioCtx = null;
+    let gain = null;
+    let currentOsc = null;   // active OscillatorNode (melody note)
+    let currentSrc = null;   // active AudioBufferSourceNode (noise/rain)
+    let melodyTimer = null;  // timeout id for next note
+    let melodyActive = false;
+
+    const log = (...a) => console.log('[BM]', ...a);
+
+    // UI helpers
+    const showPanel = id => {
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-      document.getElementById(panelId).classList.add('active');
-    }
+      document.getElementById(id).classList.add('active');
+    };
+    const showInfo = (id,msg) => { const el = document.getElementById(id); el.className='status info'; el.style.display='block'; el.textContent = msg; };
+    const showOk   = (id,msg) => { const el = document.getElementById(id); el.className='status success'; el.style.display='block'; el.textContent = msg; };
+    const showErr  = (id,msg) => { const el = document.getElementById(id); el.className='status error'; el.style.display='block'; el.textContent = msg; };
 
-    function showMonitor() { showPanel('monitor'); }
-    
-    function goHome() { 
-      if (pingInterval) clearInterval(pingInterval);
-      if (pc) pc.close();
-      if (localStream) localStream.getTracks().forEach(t => t.stop());
-      if (monitorMicStream) monitorMicStream.getTracks().forEach(t => t.stop());
-      stopSoundOnCamera();
+    function showMonitor(){ showPanel('monitor'); }
+
+    function goHome(){
+      try { if (pingTimer) clearInterval(pingTimer); } catch{}
+      try { if (pc) pc.close(); } catch{}
+      try { if (localStream) localStream.getTracks().forEach(t=>t.stop()); } catch{}
+      try { if (monitorMicStream) monitorMicStream.getTracks().forEach(t=>t.stop()); } catch{}
+      try { stopSoundOnCamera(); } catch{}
       location.reload();
     }
 
-    function showStatus(id, msg, type = '') {
-      const el = document.getElementById(id);
-      el.textContent = msg;
-      el.className = 'status ' + type;
-      el.style.display = 'block';
-    }
+    // Clipboard
+    function copyOffer(){ const t=document.getElementById('offerText'); t.select(); document.execCommand('copy'); showOk('cameraStatus','Copied offer. Send to Monitor.'); }
+    function copyAnswer(){ const t=document.getElementById('answerText'); t.select(); document.execCommand('copy'); showOk('monitorStatus','Copied answer. Send back to Camera.'); }
 
-    function enableSoundButtons() {
-      document.querySelectorAll('.sound-btn').forEach(btn => {
-        btn.disabled = false;
-      });
-      document.getElementById('soundHint').textContent = '🎵 Sounds ready!';
-      document.getElementById('soundHint').style.opacity = '1';
-      
-      if (pingInterval) {
-        clearInterval(pingInterval);
-        pingInterval = null;
-      }
-    }
-
-    function copyOffer() {
-      const text = document.getElementById('offerText');
-      text.select();
-      document.execCommand('copy');
-      showStatus('cameraStatus', '✅ Copied! Send this to Monitor device.', 'success');
-    }
-
-    function copyAnswer() {
-      const text = document.getElementById('answerText');
-      text.select();
-      document.execCommand('copy');
-      showStatus('monitorStatus', '✅ Copied! Send this back to Camera.', 'success');
-    }
-
-    async function initCamera() {
+    // CAMERA side
+    async function initCamera(){
       showPanel('camera');
-      showStatus('cameraStatus', '📷 Starting camera...', '');
+      showInfo('cameraStatus','Starting camera…');
       await startCamera();
     }
 
-    async function startCamera() {
+    async function startCamera(){
       try {
-        localStream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: 'environment',
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-          }, 
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          }
-        });
-        
-        document.getElementById('cameraVideo').srcObject = localStream;
-        cameraAudioTrack = localStream.getAudioTracks()[0];
-        
-        pc = new RTCPeerConnection(config);
-        
-        localStream.getTracks().forEach(track => {
-          pc.addTrack(track, localStream);
+        // Get camera with audio; user gesture here helps unlock audio later
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: {ideal:1920}, height: {ideal:1080} },
+          audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true }
         });
 
-        pc.ondatachannel = e => {
-          dataChannel = e.channel;
-          console.log('[CAMERA] DataChannel received');
-          
-          dataChannel.onopen = () => {
-            console.log('[CAMERA] DataChannel opened');
-          };
-          
-          dataChannel.onmessage = event => {
-            const command = JSON.parse(event.data);
-            console.log('[CAMERA] Received:', command);
-            
-            if (command.action === 'ping') {
-              console.log('[CAMERA] Received ping, sending ready');
-              dataChannel.send(JSON.stringify({ action: 'ready' }));
-            } else if (command.action === 'play') {
-              playSoundOnCamera(command.sound);
-            } else if (command.action === 'stop') {
-              stopSoundOnCamera();
-            }
-          };
+        const camVideo = document.getElementById('cameraVideo');
+        camVideo.srcObject = localStream;
+
+        cameraAudioTrack = localStream.getAudioTracks()[0] || null;
+
+        pc = new RTCPeerConnection(rtcConfig);
+
+        // Create DataChannel on OFFERER before createOffer
+        dataChannel = pc.createDataChannel('ctrl');
+        dataChannel.onopen = () => log('Camera DC open');
+        dataChannel.onclose = () => log('Camera DC close');
+        dataChannel.onerror = (e) => log('Camera DC error', e);
+        dataChannel.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data);
+            log('Camera got', msg);
+            if (msg.action === 'play') playSoundOnCamera(msg.sound);
+            if (msg.action === 'stop') stopSoundOnCamera();
+            if (msg.action === 'ping') dataChannel.send(JSON.stringify({action:'ready'}));
+          } catch(e){ log('Camera msg parse error', e); }
         };
 
-        pc.ontrack = e => {
+        // Add camera tracks
+        localStream.getTracks().forEach(tr => pc.addTrack(tr, localStream));
+
+        // Remote audio from monitor (talk-back)
+        pc.ontrack = (e) => {
           if (e.track.kind === 'audio' && e.streams[0]) {
-            document.getElementById('remoteAudio').srcObject = e.streams[0];
+            const ra = document.getElementById('remoteAudio');
+            ra.srcObject = e.streams[0];
+            ra.play().catch(()=>{});
           }
         };
 
-        const iceCandidates = [];
-        pc.onicecandidate = e => {
-          if (e.candidate) iceCandidates.push(e.candidate);
-        };
-
-        pc.onicegatheringstatechange = () => {
+        // ICE gather → export offer pkg
+        const gathered = [];
+        pc.onicecandidate = (ev)=>{ if (ev.candidate) gathered.push(ev.candidate); };
+        pc.onicegatheringstatechange = ()=>{
           if (pc.iceGatheringState === 'complete') {
-            const offer = {
-              sdp: pc.localDescription,
-              candidates: iceCandidates
-            };
-            document.getElementById('offerText').value = JSON.stringify(offer);
-            showStatus('cameraStatus', '✅ Ready! Copy and send offer to Monitor.', 'success');
+            const offerPkg = { sdp: pc.localDescription, candidates: gathered };
+            document.getElementById('offerText').value = JSON.stringify(offerPkg);
+            showOk('cameraStatus','Camera ready. Copy offer and send to Monitor.');
           }
         };
 
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        
-      } catch (err) {
-        showStatus('cameraStatus', '❌ Error: ' + err.message, 'error');
+
+      } catch(err){
+        showErr('cameraStatus','Error: '+ err.message);
       }
     }
 
-    function playSoundOnCamera(soundType) {
-      stopSoundOnCamera();
-      
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      gainNode = audioContext.createGain();
-      gainNode.gain.value = 0.3;
-      gainNode.connect(audioContext.destination);
-
-      if (soundType === 'lullaby1' || soundType === 'lullaby2') {
-        playLullaby(soundType);
-      } else if (soundType === 'whitenoise') {
-        playWhiteNoise();
-      } else if (soundType === 'rain') {
-        playRainSound();
-      }
-    }
-
-    function playLullaby(type) {
-      const melodies = {
-        lullaby1: [261.63, 261.63, 392.00, 392.00, 440.00, 440.00, 392.00, 349.23, 349.23, 329.63, 329.63, 293.66, 293.66, 261.63],
-        lullaby2: [329.63, 293.66, 293.66, 329.63, 293.66, 261.63, 293.66, 329.63, 329.63, 293.66]
-      };
-      
-      const melody = melodies[type];
-      let index = 0;
-      
-      function playNote() {
-        if (!audioContext) return;
-        
-        oscillator = audioContext.createOscillator();
-        oscillator.type = 'sine';
-        oscillator.frequency.value = melody[index];
-        oscillator.connect(gainNode);
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.5);
-        
-        index = (index + 1) % melody.length;
-        setTimeout(playNote, 600);
-      }
-      
-      playNote();
-    }
-
-    function playWhiteNoise() {
-      const bufferSize = 2 * audioContext.sampleRate;
-      const noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
-      const output = noiseBuffer.getChannelData(0);
-      
-      for (let i = 0; i < bufferSize; i++) {
-        output[i] = Math.random() * 2 - 1;
-      }
-      
-      const whiteNoise = audioContext.createBufferSource();
-      whiteNoise.buffer = noiseBuffer;
-      whiteNoise.loop = true;
-      whiteNoise.connect(gainNode);
-      whiteNoise.start();
-      
-      oscillator = whiteNoise;
-    }
-
-    function playRainSound() {
-      const bufferSize = 2 * audioContext.sampleRate;
-      const noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
-      const output = noiseBuffer.getChannelData(0);
-      
-      for (let i = 0; i < bufferSize; i++) {
-        output[i] = (Math.random() * 2 - 1) * 0.5;
-      }
-      
-      const rain = audioContext.createBufferSource();
-      rain.buffer = noiseBuffer;
-      rain.loop = true;
-      
-      const filter = audioContext.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = 800;
-      
-      rain.connect(filter);
-      filter.connect(gainNode);
-      rain.start();
-      
-      oscillator = rain;
-    }
-
-    function stopSoundOnCamera() {
-      if (oscillator) {
-        try {
-          oscillator.stop();
-        } catch (e) {}
-        oscillator = null;
-      }
-      if (audioContext) {
-        audioContext.close();
-        audioContext = null;
-      }
-    }
-
-    async function connectCamera() {
+    async function connectCamera(){
       try {
-        const input = document.getElementById('answerInput').value.trim();
-        if (!input) {
-          showStatus('cameraStatus', '⚠️ Please paste the answer first!', 'error');
-          return;
-        }
-
-        const answer = JSON.parse(input);
+        const val = document.getElementById('answerInput').value.trim();
+        if (!val) return showErr('cameraStatus','Paste the answer first.');
+        const answer = JSON.parse(val);
         await pc.setRemoteDescription(answer.sdp);
-        
-        if (answer.candidates) {
-          for (const c of answer.candidates) {
-            await pc.addIceCandidate(c);
-          }
-        }
-
-        showStatus('cameraStatus', '✅ Connected! Ready to receive sounds.', 'success');
-        
-      } catch (err) {
-        showStatus('cameraStatus', '❌ Error: ' + err.message, 'error');
+        if (answer.candidates) for (const c of answer.candidates){ await pc.addIceCandidate(c); }
+        showOk('cameraStatus','Connected. Monitor can now control sounds.');
+      } catch(err){
+        showErr('cameraStatus','Error: '+ err.message);
       }
     }
 
-    async function createAnswer() {
+    // MONITOR side
+    async function createAnswer(){
       try {
-        const input = document.getElementById('offerInput').value.trim();
-        if (!input) {
-          showStatus('monitorStatus', '⚠️ Please paste the offer first!', 'error');
-          return;
-        }
+        const val = document.getElementById('offerInput').value.trim();
+        if (!val) return showErr('monitorStatus','Paste the camera offer first.');
+        showInfo('monitorStatus','Creating connection…');
 
-        showStatus('monitorStatus', '📡 Creating connection...');
+        const offer = JSON.parse(val);
+        pc = new RTCPeerConnection(rtcConfig);
 
-        monitorMicStream = await navigator.mediaDevices.getUserMedia({ 
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          }
-        });
-        
-        monitorMicTrack = monitorMicStream.getAudioTracks()[0];
-        monitorMicTrack.enabled = false;
-
-        const offer = JSON.parse(input);
-        pc = new RTCPeerConnection(config);
-
-        dataChannel = pc.createDataChannel('sounds');
-        console.log('[MONITOR] DataChannel created');
-        
-        dataChannel.onopen = () => {
-          console.log('[MONITOR] DataChannel opened - starting persistent ping');
-          
-          // Send ping immediately
-          if (dataChannel.readyState === 'open') {
-            dataChannel.send(JSON.stringify({ action: 'ping' }));
-          }
-          
-          // Keep pinging every second until we get a response
-          pingInterval = setInterval(() => {
-            if (dataChannel && dataChannel.readyState === 'open') {
-              console.log('[MONITOR] Sending ping...');
-              dataChannel.send(JSON.stringify({ action: 'ping' }));
-            } else {
-              clearInterval(pingInterval);
-            }
-          }, 1000);
+        // Receive camera-created DC
+        pc.ondatachannel = (ev)=>{
+          dataChannel = ev.channel;
+          log('Monitor received DC', dataChannel.label);
+          dataChannel.onopen = ()=> {
+            log('Monitor DC open');
+            startPinging();
+          };
+          dataChannel.onmessage = (e)=>{
+            try {
+              const msg = JSON.parse(e.data);
+              log('Monitor got', msg);
+              if (msg.action === 'ready') {
+                enableSoundButtons();
+                showOk('monitorStatus','Handshake complete. Sounds ready.');
+              }
+            } catch(err){ log('Monitor msg parse err', err); }
+          };
+          dataChannel.onclose = ()=> log('Monitor DC close');
+          dataChannel.onerror = (e)=> log('Monitor DC error', e);
         };
 
-        dataChannel.onmessage = e => {
-          const command = JSON.parse(e.data);
-          console.log('[MONITOR] Received:', command);
-          
-          if (command.action === 'ready') {
-            console.log('[MONITOR] Camera is ready! Enabling buttons');
+        // Fallback: enable if connected and DC open
+        pc.onconnectionstatechange = ()=>{
+          log('PC state', pc.connectionState);
+          if ((pc.connectionState === 'connected' || pc.connectionState === 'completed') && dataChannel && dataChannel.readyState === 'open'){
             enableSoundButtons();
-            showStatus('monitorStatus', '🎵 Connection complete! Sounds ready.', 'success');
+            showOk('monitorStatus','Connected. Sounds enabled.');
+            stopPinging();
           }
         };
 
-        pc.addTrack(monitorMicTrack, monitorMicStream);
-
-        pc.ontrack = e => {
+        // Show camera media on monitor
+        pc.ontrack = (e)=>{
           if (e.track.kind === 'video') {
             document.getElementById('monitorVideo').srcObject = e.streams[0];
             document.getElementById('micBtn').style.display = 'flex';
           }
         };
 
-        const iceCandidates = [];
-        pc.onicecandidate = e => {
-          if (e.candidate) iceCandidates.push(e.candidate);
-        };
+        // Add monitor mic (muted by default)
+        try {
+          monitorMicStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true } });
+          monitorMicTrack = monitorMicStream.getAudioTracks()[0];
+          monitorMicTrack.enabled = false;
+          pc.addTrack(monitorMicTrack, monitorMicStream);
+        } catch(e){
+          log('Monitor mic denied', e);
+        }
 
-        pc.onicegatheringstatechange = () => {
+        // ICE gather → export answer pkg
+        const gathered = [];
+        pc.onicecandidate = (ev)=>{ if (ev.candidate) gathered.push(ev.candidate); };
+        pc.onicegatheringstatechange = ()=>{
           if (pc.iceGatheringState === 'complete') {
-            const answer = {
-              sdp: pc.localDescription,
-              candidates: iceCandidates
-            };
-            document.getElementById('answerText').value = JSON.stringify(answer);
+            const answerPkg = { sdp: pc.localDescription, candidates: gathered };
+            document.getElementById('answerText').value = JSON.stringify(answerPkg);
             document.getElementById('monitorStep2').style.display = 'block';
-            showStatus('monitorStatus', '✅ Answer ready! Copy and send to Camera.', 'success');
+            showOk('monitorStatus','Answer ready. Copy and send to Camera.');
           }
         };
 
         await pc.setRemoteDescription(offer.sdp);
-
-        if (offer.candidates) {
-          for (const c of offer.candidates) {
-            await pc.addIceCandidate(c);
-          }
-        }
+        if (offer.candidates) for (const c of offer.candidates){ await pc.addIceCandidate(c); }
 
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
 
-      } catch (err) {
-        showStatus('monitorStatus', '❌ Error: ' + err.message, 'error');
+      } catch(err){
+        showErr('monitorStatus','Error: '+ err.message);
       }
     }
 
-    function playSound(soundType) {
+    // Persistent ping loop from monitor to camera until we get "ready"
+    function startPinging(){
+      stopPinging();
+      const hint = document.getElementById('soundHint');
+      let dots = 0;
+      pingTimer = setInterval(()=>{
+        if (!dataChannel || dataChannel.readyState !== 'open') return;
+        try { dataChannel.send(JSON.stringify({action:'ping'})); } catch {}
+        dots = (dots+1)%4;
+        hint.textContent = 'Waiting for Camera handshake' + '.'.repeat(dots);
+      }, 800);
+    }
+    function stopPinging(){ if (pingTimer){ clearInterval(pingTimer); pingTimer = null; } }
+
+    // Enable sound buttons (monitor UI)
+    function enableSoundButtons(){
+      document.querySelectorAll('.sound-btn').forEach(b=> b.disabled = false);
+      const hint = document.getElementById('soundHint');
+      hint.textContent = '🎵 Sounds ready';
+      hint.style.opacity = '1';
+      stopPinging();
+    }
+
+    // Push-to-talk (monitor → camera)
+    function startTalking(){
+      const btn = document.getElementById('micBtn');
+      btn.classList.add('active'); btn.textContent = '🔴';
+      if (monitorMicTrack) monitorMicTrack.enabled = true;
+    }
+    function stopTalking(){
+      const btn = document.getElementById('micBtn');
+      btn.classList.remove('active'); btn.textContent = '🎤';
+      if (monitorMicTrack) monitorMicTrack.enabled = false;
+    }
+
+    // Monitor commands → Camera sound engine
+    function playSound(el, kind){
       if (!dataChannel || dataChannel.readyState !== 'open') {
-        showStatus('monitorStatus', '⚠️ Connection not ready yet!', 'error');
+        showErr('monitorStatus','Connection not ready yet.');
         return;
       }
-
-      document.querySelectorAll('.sound-btn:not(.stop-btn)').forEach(btn => btn.classList.remove('active'));
-      event.target.classList.add('active');
-
-      dataChannel.send(JSON.stringify({
-        action: 'play',
-        sound: soundType
-      }));
-
-      currentSound = soundType;
-      showStatus('monitorStatus', `🎵 Playing ${event.target.textContent}`, 'success');
+      document.querySelectorAll('.sound-btn:not(.stop)').forEach(b=> b.classList.remove('active'));
+      el.classList.add('active');
+      try { dataChannel.send(JSON.stringify({ action:'play', sound: kind })); } catch {}
+      showOk('monitorStatus','Playing '+ el.textContent.replaceAll('\n',' ').trim());
     }
-
-    function stopSound() {
+    function stopSound(){
       if (dataChannel && dataChannel.readyState === 'open') {
-        dataChannel.send(JSON.stringify({
-          action: 'stop'
-        }));
+        try { dataChannel.send(JSON.stringify({ action:'stop' })); } catch {}
       }
-
-      document.querySelectorAll('.sound-btn').forEach(btn => btn.classList.remove('active'));
-      currentSound = null;
-      showStatus('monitorStatus', '⏹️ Sound stopped', 'success');
+      document.querySelectorAll('.sound-btn').forEach(b=> b.classList.remove('active'));
+      showInfo('monitorStatus','Sound stopped.');
     }
 
-    function startTalking() {
-      if (!monitorMicTrack) return;
-
-      const btn = document.getElementById('micBtn');
-      btn.classList.add('active');
-      btn.textContent = '🔴';
-
-      monitorMicTrack.enabled = true;
+    // CAMERA: Web Audio helpers (exclusive playback + reliable stop)
+    async function ensureAudioRunning() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        gain = audioCtx.createGain();
+        gain.gain.value = 0.28;
+        gain.connect(audioCtx.destination);
+      }
+      if (audioCtx.state === 'suspended') {
+        try { await audioCtx.resume(); } catch {}
+      }
     }
 
-    function stopTalking() {
-      if (!monitorMicTrack) return;
+    function stopSoundOnCamera() {
+      melodyActive = false;
+      if (melodyTimer) { try { clearTimeout(melodyTimer); } catch{} melodyTimer = null; }
 
-      const btn = document.getElementById('micBtn');
-      btn.classList.remove('active');
-      btn.textContent = '🎤';
+      try { if (currentOsc) { currentOsc.onended = null; currentOsc.stop(0); } } catch{}
+      try { if (currentOsc) currentOsc.disconnect(); } catch{}
+      currentOsc = null;
 
-      monitorMicTrack.enabled = false;
+      try { if (currentSrc) { currentSrc.onended = null; currentSrc.stop(0); } } catch{}
+      try { if (currentSrc) currentSrc.disconnect(); } catch{}
+      currentSrc = null;
+    }
+
+    async function playSoundOnCamera(kind) {
+      await ensureAudioRunning();
+      stopSoundOnCamera(); // guarantee exclusivity
+
+      if (kind === 'whitenoise') return playWhiteNoise();
+      if (kind === 'rain') return playRain();
+      if (kind === 'lullaby1') return playMelody([261.63,261.63,392.00,392.00,440.00,440.00,392.00,349.23,349.23,329.63,329.63,293.66,293.66,261.63], 0.52, 620);
+      if (kind === 'lullaby2') return playMelody([329.63,293.66,293.66,329.63,293.66,261.63,293.66,329.63,329.63,293.66], 0.52, 620);
+    }
+
+    function playMelody(notes, noteDur = 0.5, gapMs = 620) {
+      melodyActive = true;
+      let i = 0;
+
+      const step = () => {
+        if (!melodyActive) return;
+
+        const osc = audioCtx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = notes[i];
+        osc.connect(gain);
+        currentOsc = osc;
+
+        const stopAt = audioCtx.currentTime + noteDur;
+        osc.start();
+        // stop() immediately or at stopAt; here we schedule the exact stop time for smoother envelope
+        osc.stop(stopAt); // per API, stop schedules immediate or future stop reliably [web:204]
+
+        osc.onended = () => {
+          if (!melodyActive) return;
+          i = (i + 1) % notes.length;
+          melodyTimer = setTimeout(step, gapMs);
+        };
+      };
+
+      step();
+    }
+
+    function playWhiteNoise() {
+      const frames = audioCtx.sampleRate * 2;
+      const buf = audioCtx.createBuffer(1, frames, audioCtx.sampleRate);
+      const ch = buf.getChannelData(0);
+      for (let i = 0; i < frames; i++) ch[i] = Math.random() * 2 - 1;
+
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true; // loop until stopped
+      src.connect(gain);
+      src.start(0);
+      currentSrc = src; // AudioBufferSourceNode is a one-shot; keep handle to stop() it [web:223]
+    }
+
+    function playRain() {
+      const frames = audioCtx.sampleRate * 2;
+      const buf = audioCtx.createBuffer(1, frames, audioCtx.sampleRate);
+      const ch = buf.getChannelData(0);
+      for (let i = 0; i < frames; i++) ch[i] = (Math.random() * 2 - 1) * 0.5;
+
+      const lp = audioCtx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 900;
+
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      src.connect(lp);
+      lp.connect(gain);
+      src.start(0);
+      currentSrc = src; // one-shot node; keep handle to stop() [web:223]
     }
   </script>
 </body>
