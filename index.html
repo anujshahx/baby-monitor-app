@@ -4,58 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Baby Monitor</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      background: linear-gradient(135deg,#667eea 0%,#764ba2 100%);
-      min-height: 100vh; padding: 20px; display: flex; align-items: center; justify-content: center;
-    }
-    .container { max-width: 600px; width: 100%; background: #fff; border-radius: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.25); overflow: hidden; }
-    .header { background: linear-gradient(135deg,#667eea,#764ba2); color: #fff; padding: 28px; text-align: center; }
-    .header h1 { font-size: 28px; font-weight: 800; margin-bottom: 6px; }
-    .content { padding: 24px; }
-    .panel { display: none; }
-    .panel.active { display: block; animation: fade .25s ease; }
-    @keyframes fade { from {opacity:0; transform: translateY(6px);} to {opacity:1; transform: translateY(0);} }
-    .home-buttons { display: flex; flex-direction: column; gap: 14px; }
-    button {
-      width: 100%; padding: 14px 16px; border: 0; border-radius: 12px;
-      color: #fff; font-weight: 700; font-size: 16px; cursor: pointer; transition: transform .08s ease, box-shadow .2s ease;
-      box-shadow: 0 6px 16px rgba(0,0,0,.15);
-    }
-    button:active { transform: scale(.98); }
-    .btn-primary { background: linear-gradient(135deg,#667eea,#764ba2); }
-    .btn-secondary { background: linear-gradient(135deg,#11998e,#38ef7d); }
-    .btn-copy { background: linear-gradient(135deg,#f093fb,#f5576c); }
-    .btn-danger { background: linear-gradient(135deg,#fa709a,#fee140); color: #222; }
-    .status { margin: 12px 0; padding: 12px; border-radius: 10px; text-align: center; font-weight: 700; }
-    .status.success { background: #e8f7ee; color: #146c2e; border: 1px solid #bfe7cb; }
-    .status.error { background: #fde8ea; color: #821d2a; border: 1px solid #f3c2c8; }
-    .status.info { background: #eaf2fd; color: #174aa7; border: 1px solid #c8dbfb; }
-    textarea {
-      width: 100%; padding: 10px 12px; margin: 10px 0; border: 2px solid #e5e7eb; border-radius: 10px;
-      background: #f8fafc; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; resize: vertical;
-    }
-    video { width: 100%; border-radius: 14px; background: #000; margin: 10px 0; min-height: 200px; }
-    .video-wrap { position: relative; }
-    .mic-fab {
-      position: absolute; bottom: 16px; right: 16px; width: 56px; height: 56px; border-radius: 50%;
-      background: linear-gradient(135deg,#ff6b6b,#ee5a6f); color: #fff; font-size: 22px; display: flex; align-items: center; justify-content: center;
-      border: 0; cursor: pointer; box-shadow: 0 10px 24px rgba(0,0,0,.25);
-    }
-    .mic-fab.active { background: linear-gradient(135deg,#ee5a6f,#c92a2a); }
-    .sound-card { margin: 14px 0; padding: 14px; border-radius: 14px; background: linear-gradient(135deg,#a8edea,#fed6e3); }
-    .sound-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
-    .sound-btn {
-      padding: 12px; background: #fff; border: 2px solid #e5e7eb; border-radius: 10px; color: #374151; font-weight: 700; cursor: pointer;
-    }
-    .sound-btn.active { background: linear-gradient(135deg,#667eea,#764ba2); color: #fff; border-color: transparent; }
-    .sound-btn:disabled { opacity: .5; cursor: not-allowed; }
-    .sound-btn.stop { grid-column: span 2; background: linear-gradient(135deg,#ff6b6b,#ee5a6f); color: #fff; border: 0; }
-    .hint { text-align: center; font-size: 12px; color: #374151; opacity: .8; margin-top: 8px; }
-    @media (max-width: 480px) { .header h1 { font-size: 24px; } }
-  </style>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="container">
@@ -75,13 +24,19 @@
       <!-- Camera -->
       <div id="camera" class="panel">
         <div id="cameraStatus" class="status info" style="display:none"></div>
-        <div class="status info">Step 1: Copy this and send to Monitor</div>
-        <textarea id="offerText" readonly onclick="this.select()"></textarea>
-        <button class="btn-copy" onclick="copyOffer()">📋 Copy Offer</button>
 
-        <div class="status info" style="margin-top:8px">Step 2: Paste answer from Monitor</div>
-        <textarea id="answerInput" placeholder="Paste answer here..."></textarea>
-        <button class="btn-secondary" onclick="connectCamera()">✓ Connect</button>
+        <!-- NEW: Camera connection status -->
+        <div id="cameraConnStatus" class="conn-status">
+          Connection:
+          <span id="cameraConnStatusText" class="conn-badge conn-idle">idle</span>
+        </div>
+
+        <div class="status info">Step 1: Share this code with Monitor</div>
+        <div id="roomCodeDisplay" class="room-code-display"></div>
+
+        <div class="status info" style="margin-top:8px">
+          Step 2: Wait for Monitor to join using this code
+        </div>
 
         <video id="cameraVideo" autoplay muted playsinline></video>
         <audio id="remoteAudio" autoplay></audio>
@@ -93,8 +48,14 @@
       <div id="monitor" class="panel">
         <div id="monitorStatus" class="status info" style="display:none"></div>
 
+        <!-- NEW: Monitor connection status -->
+        <div id="monitorConnStatus" class="conn-status">
+          Connection:
+          <span id="monitorConnStatusText" class="conn-badge conn-idle">idle</span>
+        </div>
+
         <div class="sound-card">
-          <div style="font-weight:800; margin-bottom:10px; text-align:center">🎵 Soothing Sounds</div>
+          <div class="sound-title">🎵 Soothing Sounds</div>
           <div class="sound-grid">
             <button class="sound-btn" onclick="playSound(this,'lullaby1')" disabled>🎼 Twinkle</button>
             <button class="sound-btn" onclick="playSound(this,'lullaby2')" disabled>🌙 Brahms</button>
@@ -105,19 +66,21 @@
           <div id="soundHint" class="hint">Waiting for Camera handshake…</div>
         </div>
 
-        <div class="status info">Step 1: Paste offer from Camera</div>
-        <textarea id="offerInput" placeholder="Paste offer here..."></textarea>
-        <button class="btn-primary" onclick="createAnswer()">🔗 Create Answer</button>
+        <div class="status info">Step 1: Enter code from Camera</div>
+        <input id="roomCodeInput" placeholder="Enter code (e.g. 4832)">
+        <button class="btn-primary" onclick="joinRoom()">🔗 Join</button>
 
         <div id="monitorStep2" style="display:none">
-          <div class="status info" style="margin-top:8px">Step 2: Copy and send back to Camera</div>
-          <textarea id="answerText" readonly onclick="this.select()"></textarea>
-          <button class="btn-copy" onclick="copyAnswer()">📋 Copy Answer</button>
+          <div class="status info" style="margin-top:8px">
+            Step 2: Connected – you can now watch and control sounds
+          </div>
         </div>
 
         <div class="video-wrap">
           <video id="monitorVideo" autoplay playsinline></video>
-          <button id="micBtn" class="mic-fab" style="display:none" onpointerdown="startTalking()" onpointerup="stopTalking()" ontouchstart="startTalking()" ontouchend="stopTalking()">🎤</button>
+          <button id="micBtn" class="mic-fab" style="display:none"
+                  onpointerdown="startTalking()" onpointerup="stopTalking()"
+                  ontouchstart="startTalking()" ontouchend="stopTalking()">🎤</button>
         </div>
 
         <button class="btn-danger" onclick="goHome()">← Back</button>
@@ -125,367 +88,12 @@
     </div>
   </div>
 
-  <script>
-    // STUN only; add TURN for internet NAT traversal if needed
-    const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+  <!-- Firebase (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 
-    // State
-    let pc = null;
-    let localStream = null;            // camera device
-    let cameraAudioTrack = null;       // camera mic (optional use)
-    let monitorMicStream = null;       // monitor talk-back
-    let monitorMicTrack = null;        // monitor talk-back track
-    let dataChannel = null;            // ctrl channel
-    let pingTimer = null;              // monitor handshake pinger
-
-    // Web Audio state (camera phone)
-    let audioCtx = null;
-    let gain = null;
-    let currentOsc = null;   // active OscillatorNode (melody note)
-    let currentSrc = null;   // active AudioBufferSourceNode (noise/rain)
-    let melodyTimer = null;  // timeout id for next note
-    let melodyActive = false;
-
-    const log = (...a) => console.log('[BM]', ...a);
-
-    // UI helpers
-    const showPanel = id => {
-      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-      document.getElementById(id).classList.add('active');
-    };
-    const showInfo = (id,msg) => { const el = document.getElementById(id); el.className='status info'; el.style.display='block'; el.textContent = msg; };
-    const showOk   = (id,msg) => { const el = document.getElementById(id); el.className='status success'; el.style.display='block'; el.textContent = msg; };
-    const showErr  = (id,msg) => { const el = document.getElementById(id); el.className='status error'; el.style.display='block'; el.textContent = msg; };
-
-    function showMonitor(){ showPanel('monitor'); }
-
-    function goHome(){
-      try { if (pingTimer) clearInterval(pingTimer); } catch{}
-      try { if (pc) pc.close(); } catch{}
-      try { if (localStream) localStream.getTracks().forEach(t=>t.stop()); } catch{}
-      try { if (monitorMicStream) monitorMicStream.getTracks().forEach(t=>t.stop()); } catch{}
-      try { stopSoundOnCamera(); } catch{}
-      location.reload();
-    }
-
-    // Clipboard
-    function copyOffer(){ const t=document.getElementById('offerText'); t.select(); document.execCommand('copy'); showOk('cameraStatus','Copied offer. Send to Monitor.'); }
-    function copyAnswer(){ const t=document.getElementById('answerText'); t.select(); document.execCommand('copy'); showOk('monitorStatus','Copied answer. Send back to Camera.'); }
-
-    // CAMERA side
-    async function initCamera(){
-      showPanel('camera');
-      showInfo('cameraStatus','Starting camera…');
-      await startCamera();
-    }
-
-    async function startCamera(){
-      try {
-        // Get camera with audio; user gesture here helps unlock audio later
-        localStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: {ideal:1920}, height: {ideal:1080} },
-          audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true }
-        });
-
-        const camVideo = document.getElementById('cameraVideo');
-        camVideo.srcObject = localStream;
-
-        cameraAudioTrack = localStream.getAudioTracks()[0] || null;
-
-        pc = new RTCPeerConnection(rtcConfig);
-
-        // Create DataChannel on OFFERER before createOffer
-        dataChannel = pc.createDataChannel('ctrl');
-        dataChannel.onopen = () => log('Camera DC open');
-        dataChannel.onclose = () => log('Camera DC close');
-        dataChannel.onerror = (e) => log('Camera DC error', e);
-        dataChannel.onmessage = (ev) => {
-          try {
-            const msg = JSON.parse(ev.data);
-            log('Camera got', msg);
-            if (msg.action === 'play') playSoundOnCamera(msg.sound);
-            if (msg.action === 'stop') stopSoundOnCamera();
-            if (msg.action === 'ping') dataChannel.send(JSON.stringify({action:'ready'}));
-          } catch(e){ log('Camera msg parse error', e); }
-        };
-
-        // Add camera tracks
-        localStream.getTracks().forEach(tr => pc.addTrack(tr, localStream));
-
-        // Remote audio from monitor (talk-back)
-        pc.ontrack = (e) => {
-          if (e.track.kind === 'audio' && e.streams[0]) {
-            const ra = document.getElementById('remoteAudio');
-            ra.srcObject = e.streams[0];
-            ra.play().catch(()=>{});
-          }
-        };
-
-        // ICE gather → export offer pkg
-        const gathered = [];
-        pc.onicecandidate = (ev)=>{ if (ev.candidate) gathered.push(ev.candidate); };
-        pc.onicegatheringstatechange = ()=>{
-          if (pc.iceGatheringState === 'complete') {
-            const offerPkg = { sdp: pc.localDescription, candidates: gathered };
-            document.getElementById('offerText').value = JSON.stringify(offerPkg);
-            showOk('cameraStatus','Camera ready. Copy offer and send to Monitor.');
-          }
-        };
-
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-
-      } catch(err){
-        showErr('cameraStatus','Error: '+ err.message);
-      }
-    }
-
-    async function connectCamera(){
-      try {
-        const val = document.getElementById('answerInput').value.trim();
-        if (!val) return showErr('cameraStatus','Paste the answer first.');
-        const answer = JSON.parse(val);
-        await pc.setRemoteDescription(answer.sdp);
-        if (answer.candidates) for (const c of answer.candidates){ await pc.addIceCandidate(c); }
-        showOk('cameraStatus','Connected. Monitor can now control sounds.');
-      } catch(err){
-        showErr('cameraStatus','Error: '+ err.message);
-      }
-    }
-
-    // MONITOR side
-    async function createAnswer(){
-      try {
-        const val = document.getElementById('offerInput').value.trim();
-        if (!val) return showErr('monitorStatus','Paste the camera offer first.');
-        showInfo('monitorStatus','Creating connection…');
-
-        const offer = JSON.parse(val);
-        pc = new RTCPeerConnection(rtcConfig);
-
-        // Receive camera-created DC
-        pc.ondatachannel = (ev)=>{
-          dataChannel = ev.channel;
-          log('Monitor received DC', dataChannel.label);
-          dataChannel.onopen = ()=> {
-            log('Monitor DC open');
-            startPinging();
-          };
-          dataChannel.onmessage = (e)=>{
-            try {
-              const msg = JSON.parse(e.data);
-              log('Monitor got', msg);
-              if (msg.action === 'ready') {
-                enableSoundButtons();
-                showOk('monitorStatus','Handshake complete. Sounds ready.');
-              }
-            } catch(err){ log('Monitor msg parse err', err); }
-          };
-          dataChannel.onclose = ()=> log('Monitor DC close');
-          dataChannel.onerror = (e)=> log('Monitor DC error', e);
-        };
-
-        // Fallback: enable if connected and DC open
-        pc.onconnectionstatechange = ()=>{
-          log('PC state', pc.connectionState);
-          if ((pc.connectionState === 'connected' || pc.connectionState === 'completed') && dataChannel && dataChannel.readyState === 'open'){
-            enableSoundButtons();
-            showOk('monitorStatus','Connected. Sounds enabled.');
-            stopPinging();
-          }
-        };
-
-        // Show camera media on monitor
-        pc.ontrack = (e)=>{
-          if (e.track.kind === 'video') {
-            document.getElementById('monitorVideo').srcObject = e.streams[0];
-            document.getElementById('micBtn').style.display = 'flex';
-          }
-        };
-
-        // Add monitor mic (muted by default)
-        try {
-          monitorMicStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true } });
-          monitorMicTrack = monitorMicStream.getAudioTracks()[0];
-          monitorMicTrack.enabled = false;
-          pc.addTrack(monitorMicTrack, monitorMicStream);
-        } catch(e){
-          log('Monitor mic denied', e);
-        }
-
-        // ICE gather → export answer pkg
-        const gathered = [];
-        pc.onicecandidate = (ev)=>{ if (ev.candidate) gathered.push(ev.candidate); };
-        pc.onicegatheringstatechange = ()=>{
-          if (pc.iceGatheringState === 'complete') {
-            const answerPkg = { sdp: pc.localDescription, candidates: gathered };
-            document.getElementById('answerText').value = JSON.stringify(answerPkg);
-            document.getElementById('monitorStep2').style.display = 'block';
-            showOk('monitorStatus','Answer ready. Copy and send to Camera.');
-          }
-        };
-
-        await pc.setRemoteDescription(offer.sdp);
-        if (offer.candidates) for (const c of offer.candidates){ await pc.addIceCandidate(c); }
-
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-
-      } catch(err){
-        showErr('monitorStatus','Error: '+ err.message);
-      }
-    }
-
-    // Persistent ping loop from monitor to camera until we get "ready"
-    function startPinging(){
-      stopPinging();
-      const hint = document.getElementById('soundHint');
-      let dots = 0;
-      pingTimer = setInterval(()=>{
-        if (!dataChannel || dataChannel.readyState !== 'open') return;
-        try { dataChannel.send(JSON.stringify({action:'ping'})); } catch {}
-        dots = (dots+1)%4;
-        hint.textContent = 'Waiting for Camera handshake' + '.'.repeat(dots);
-      }, 800);
-    }
-    function stopPinging(){ if (pingTimer){ clearInterval(pingTimer); pingTimer = null; } }
-
-    // Enable sound buttons (monitor UI)
-    function enableSoundButtons(){
-      document.querySelectorAll('.sound-btn').forEach(b=> b.disabled = false);
-      const hint = document.getElementById('soundHint');
-      hint.textContent = '🎵 Sounds ready';
-      hint.style.opacity = '1';
-      stopPinging();
-    }
-
-    // Push-to-talk (monitor → camera)
-    function startTalking(){
-      const btn = document.getElementById('micBtn');
-      btn.classList.add('active'); btn.textContent = '🔴';
-      if (monitorMicTrack) monitorMicTrack.enabled = true;
-    }
-    function stopTalking(){
-      const btn = document.getElementById('micBtn');
-      btn.classList.remove('active'); btn.textContent = '🎤';
-      if (monitorMicTrack) monitorMicTrack.enabled = false;
-    }
-
-    // Monitor commands → Camera sound engine
-    function playSound(el, kind){
-      if (!dataChannel || dataChannel.readyState !== 'open') {
-        showErr('monitorStatus','Connection not ready yet.');
-        return;
-      }
-      document.querySelectorAll('.sound-btn:not(.stop)').forEach(b=> b.classList.remove('active'));
-      el.classList.add('active');
-      try { dataChannel.send(JSON.stringify({ action:'play', sound: kind })); } catch {}
-      showOk('monitorStatus','Playing '+ el.textContent.replaceAll('\n',' ').trim());
-    }
-    function stopSound(){
-      if (dataChannel && dataChannel.readyState === 'open') {
-        try { dataChannel.send(JSON.stringify({ action:'stop' })); } catch {}
-      }
-      document.querySelectorAll('.sound-btn').forEach(b=> b.classList.remove('active'));
-      showInfo('monitorStatus','Sound stopped.');
-    }
-
-    // CAMERA: Web Audio helpers (exclusive playback + reliable stop)
-    async function ensureAudioRunning() {
-      if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        gain = audioCtx.createGain();
-        gain.gain.value = 0.28;
-        gain.connect(audioCtx.destination);
-      }
-      if (audioCtx.state === 'suspended') {
-        try { await audioCtx.resume(); } catch {}
-      }
-    }
-
-    function stopSoundOnCamera() {
-      melodyActive = false;
-      if (melodyTimer) { try { clearTimeout(melodyTimer); } catch{} melodyTimer = null; }
-
-      try { if (currentOsc) { currentOsc.onended = null; currentOsc.stop(0); } } catch{}
-      try { if (currentOsc) currentOsc.disconnect(); } catch{}
-      currentOsc = null;
-
-      try { if (currentSrc) { currentSrc.onended = null; currentSrc.stop(0); } } catch{}
-      try { if (currentSrc) currentSrc.disconnect(); } catch{}
-      currentSrc = null;
-    }
-
-    async function playSoundOnCamera(kind) {
-      await ensureAudioRunning();
-      stopSoundOnCamera(); // guarantee exclusivity
-
-      if (kind === 'whitenoise') return playWhiteNoise();
-      if (kind === 'rain') return playRain();
-      if (kind === 'lullaby1') return playMelody([261.63,261.63,392.00,392.00,440.00,440.00,392.00,349.23,349.23,329.63,329.63,293.66,293.66,261.63], 0.52, 620);
-      if (kind === 'lullaby2') return playMelody([329.63,293.66,293.66,329.63,293.66,261.63,293.66,329.63,329.63,293.66], 0.52, 620);
-    }
-
-    function playMelody(notes, noteDur = 0.5, gapMs = 620) {
-      melodyActive = true;
-      let i = 0;
-
-      const step = () => {
-        if (!melodyActive) return;
-
-        const osc = audioCtx.createOscillator();
-        osc.type = 'sine';
-        osc.frequency.value = notes[i];
-        osc.connect(gain);
-        currentOsc = osc;
-
-        const stopAt = audioCtx.currentTime + noteDur;
-        osc.start();
-        // stop() immediately or at stopAt; here we schedule the exact stop time for smoother envelope
-        osc.stop(stopAt); // per API, stop schedules immediate or future stop reliably [web:204]
-
-        osc.onended = () => {
-          if (!melodyActive) return;
-          i = (i + 1) % notes.length;
-          melodyTimer = setTimeout(step, gapMs);
-        };
-      };
-
-      step();
-    }
-
-    function playWhiteNoise() {
-      const frames = audioCtx.sampleRate * 2;
-      const buf = audioCtx.createBuffer(1, frames, audioCtx.sampleRate);
-      const ch = buf.getChannelData(0);
-      for (let i = 0; i < frames; i++) ch[i] = Math.random() * 2 - 1;
-
-      const src = audioCtx.createBufferSource();
-      src.buffer = buf;
-      src.loop = true; // loop until stopped
-      src.connect(gain);
-      src.start(0);
-      currentSrc = src; // AudioBufferSourceNode is a one-shot; keep handle to stop() it [web:223]
-    }
-
-    function playRain() {
-      const frames = audioCtx.sampleRate * 2;
-      const buf = audioCtx.createBuffer(1, frames, audioCtx.sampleRate);
-      const ch = buf.getChannelData(0);
-      for (let i = 0; i < frames; i++) ch[i] = (Math.random() * 2 - 1) * 0.5;
-
-      const lp = audioCtx.createBiquadFilter();
-      lp.type = 'lowpass';
-      lp.frequency.value = 900;
-
-      const src = audioCtx.createBufferSource();
-      src.buffer = buf;
-      src.loop = true;
-      src.connect(lp);
-      lp.connect(gain);
-      src.start(0);
-      currentSrc = src; // one-shot node; keep handle to stop() [web:223]
-    }
-  </script>
+  <!-- App logic -->
+  <script src="app.js"></script>
 </body>
 </html>
